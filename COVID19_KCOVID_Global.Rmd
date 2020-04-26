@@ -37,7 +37,7 @@ dtapop<-dtapop%>%
     rename(country = "Region, subregion, country or area *",
            pop = "2020")%>%
     filter(Type=="Country/Area")%>%
-    select(country, pop)%>%
+    select(country, pop, region)%>%
     mutate(pop=as.numeric(pop))
 
 ```
@@ -232,7 +232,7 @@ dtacurve<-dtacurve%>%
     ungroup()%>%
     select(country, oecd, date, day, latest, cases, deaths, pop,  incidence, cfr, mortality, starts_with("new"), starts_with("start"), starts_with("peak"), starts_with("end"), -endcases)
 
-temp<-dtacurve%>%filter(country=="Republic of Korea")
+temp<-dtacurve%>%filter(country=="South Korea")
 ```
 
 
@@ -428,8 +428,12 @@ plot_ly(dtafig, x=~date, y=~incidence, name="Total cases",
 ```
 
 #####__2.2 OECD countries also in the relative stable phase__
+```{r}
+dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)
+nlikeSK<-(length(unique(dtafig$country)) - 1)
+```
 
-Several other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. Compared to South Korea, the height of the peak tends to be slightly higher, except in Greece. Also, Slovenia has just entered the relatively stable phase, and it is important to keep the number of new infections low without any rebound.
+Among OECD members, `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. Except in Greece, the peak height is taller - slightly (Austria, New Zealand, and  Slovenia) or substantially (Iceland), and the length of pre and post peak phases is longer. It took longer to enter the stable phase, after the peak. __Iceland is the first country that entered the relatively stable phase, among those with a very high peak__ (see the following section), but it took 52 days to pass the peak phases. Even among these countries, it is important to keep the number of new infections low without any rebound.
 
 ```{r}
 
@@ -461,12 +465,14 @@ plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia",
                type = 'scatter', mode='lines', line = list(color = c("#bae4b3"))  )%>%
     add_trace(y=~Y_Greece, name="Greece", 
                   line = list(color = c("#bdd7e7")) )%>%
+    add_trace(y=~Y_Iceland, name="Iceland", 
+                  line = list(color = c("#fdbe85")) )%>%
     add_trace(y=~Y_NZ, name="New Zealand", 
                   line = list(color = c("#fcae91")) )%>%
     add_trace(y=~Y_Slovenia, name="Slovenia", 
                   line = list(color = c("#cbc9e2")) )%>%
     add_trace(y=~Y_SK, name="South Korea", 
-                  line = list(color = c("#636363"), width=2) )%>%
+                  line = list(color = c("#636363"), width=3) )%>%
     layout(showlegend=TRUE,
            xaxis = list(title = "Day since start of the first wave", 
                         tickfont = list(size=10),
@@ -482,7 +488,7 @@ Meanwhile, a majority of countries have not yet entered the relatively stable ph
 
 A few patterns emerge.
 
-* Some would reach the stable phase soon if the current pace continues (e.g., Austria, Iceland, Luxembourg, and Switzerland).  
+* Some would reach the stable phase soon if the current pace continues (e.g., Austria, Luxembourg, and Switzerland).  
 * Some have had rebounds. After a tentative peak, the number of new infections decreased substantially, but then increased again. See Finland and Lithuania below.  
 * Some reached or passed the peak only recently. After the peak, new cases decreased immediately and consistently in some countries (e.g., Germany and Italy), while some countries have a wide peak (e.g., Belgium and United States below).  
 * Some have entered the first wave, and the curve is going up slowly (e.g., Japan and Mexico). The level is low, but there is no clear sign of decrease.
@@ -615,7 +621,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==TRUE)%>%filter(pe
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = 4, shareX = TRUE, shareY = TRUE)  
 ```
 
 ```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="200px"}
@@ -692,7 +698,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latest==TRUE)
 
 dtafig$country <- factor(dtafig$country, 
                          levels = unique(dtafig$country)
-                         [order(dtafig$startdate, decreasing = TRUE)])
+                         [order(dtafig$startdate, dtafig$enddate, decreasing = TRUE)])
 
 
 plot_ly(dtafig, color = I("gray80"))%>%
