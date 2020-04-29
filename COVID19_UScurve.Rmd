@@ -402,10 +402,16 @@ plot_ly(dtafig, x=~date, y=~incidence, name="Total cases",
 ```
 
 #####__2.2 Curve by state__
+```{r}
+temp<-dtacurve%>%filter(is.na(enddate)==FALSE)
+table(temp$country)
+nstable<-length(unique(temp$state))
+
+```
 
 _Holding beginning of the first wave on day 0_, the following figure compares the length and height of the peak across the states. 
 
-* Two states, Montana and Hawaii, have entered the stable phase. 
+* Only `r nstable` states, Montana and Hawaii, have entered the stable phase. 
 
 * However, some would reach the stable phase soon if the pace continues (e.g., Vermont).  
 
@@ -428,7 +434,7 @@ panel <- . %>%
   )%>%
   layout(
     showlegend = FALSE,
-    yaxis=list(title="", range=c(0,6)),
+    yaxis=list(title="", range=c(0,8)),
     xaxis=list(title="", range=c(0,45))) 
 
 dtacurve%>%filter(peakcasespp<median(peakcasespp))%>%
@@ -451,7 +457,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     title = c(""),
-    yaxis=list(title="", range=c(0,20)),
+    yaxis=list(title="", range=c(0,25)),
     xaxis=list(title="", range=c(0,45))) 
 
 dtacurve%>%filter(peakcasespp>=median(peakcasespp)& peakcasespp<25)%>%
@@ -538,7 +544,7 @@ dtafig<-dtacurve%>%filter(latest==TRUE)%>%
     mutate(length=peakdate-startdate)
 
 textlist <- list(
-  size = 10,
+  size = 8,
   color = toRGB("grey50"))
 
 plot_ly(dtafig, x=~length, y=~peakcasespp, 

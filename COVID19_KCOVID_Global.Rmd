@@ -433,7 +433,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)
 nlikeSK<-(length(unique(dtafig$country)) - 1)
 ```
 
-Among OECD members, `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. Except in Greece, the peak height is taller - slightly (Austria, New Zealand, and  Slovenia) or substantially (Iceland), and the length of pre and post peak phases is longer. It took longer to enter the stable phase, after the peak. __Iceland is the first country that entered the relatively stable phase, among those with a very high peak__ (see the following section), but it took 52 days to pass the peak phases. Even among these countries, it is important to keep the number of new infections low without any rebound.
+Among OECD members, `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. Except in Greece, the peak height is taller - slightly (Austria, Lithuania, New Zealand, and  Slovenia) or substantially (Iceland), and the length of pre and post peak phases is longer. It took longer to enter the stable phase, after the peak. __Iceland is the first country that entered the relatively stable phase, among those with a very high peak__ (see the following section), but it took 52 days to pass the peak phases. Even among these countries, it is important to keep the number of new infections low without any rebound.
 
 ```{r}
 
@@ -467,6 +467,8 @@ plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia",
                   line = list(color = c("#bdd7e7")) )%>%
     add_trace(y=~Y_Iceland, name="Iceland", 
                   line = list(color = c("#fdbe85")) )%>%
+    add_trace(y=~Y_Lithuania, name="Lithuania", 
+                  line = list(color = c("#addd8e")) )%>%    
     add_trace(y=~Y_NZ, name="New Zealand", 
                   line = list(color = c("#fcae91")) )%>%
     add_trace(y=~Y_Slovenia, name="Slovenia", 
