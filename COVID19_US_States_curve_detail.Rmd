@@ -1,0 +1,459 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: true
+---
+```{r intro, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(echo=FALSE, 
+                      message=FALSE, 
+                      comment = "", 
+                      warning=FALSE, 
+                      results="hide") 
+
+date<-as.Date(Sys.time(	), format='%d%b%Y')
+time<-Sys.time()
+
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressMessages(library(plotly))
+suppressMessages(library(Matrix))
+suppressMessages(library(stringr))
+suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressWarnings(suppressMessages(library(lubridate)))
+suppressWarnings(suppressMessages(library(zoo)))
+```
+
+```{r dtaPop}
+#estimates:Total population, both sexes combined, as of 1 July (thousands)
+dtapop<-read.csv("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
+
+dtapop<-dtapop%>%
+    mutate(state=as.character(STNAME), 
+           pop=as.numeric(POPESTIMATE2019))%>%
+    filter(COUNTY==0)%>%
+    select(state, pop)
+
+str(dtapop)
+length(unique(dtapop$state))
+```
+
+
+```{r dtaCOVID}
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv"
+
+dtacases<-read.csv(url)%>%
+    rename(country = Country_Region,
+           state = Province_State,
+           county = Admin2)%>%
+    select(country, state, county, FIPS, Combined_Key, starts_with("X"))%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           cases = value)%>%
+    mutate(country=as.character(country),
+           state=as.character(state),
+           county=as.character(county))%>%
+    select(country, state, date, cases)%>%
+    group_by(country, state, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv"
+
+dtadeaths<-read.csv(url)%>%
+    rename(
+           state = Province_State,
+           county = Admin2)%>%
+    select(state, county, FIPS, Combined_Key, starts_with("X"))%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           deaths = value)%>%
+    mutate(
+           state=as.character(state),
+           county=as.character(county))%>%
+    select(state, date, deaths)%>%
+    group_by(state, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+str(dtacases)
+str(dtadeaths)
+
+dtacovid<-left_join(dtacases, dtadeaths, by = c("state", "date"))%>%
+    mutate(date=mdy(substring(date, 2)) )
+
+dim(dtacases)
+dim(dtadeaths)
+dim(dtacovid)
+```
+
+```{r dta}
+str(dtacovid)
+str(dtapop)
+
+dta<-full_join(dtacovid, dtapop, by = "state")
+
+dim(dtacovid)
+dim(dtapop)
+dim(dta)
+
+    temp<-dta%>%filter(is.na(pop)==TRUE) 
+    table(temp$state) #territories without pop: DROP THESE below
+    
+    temp<-dta%>%filter(is.na(cases)==TRUE)
+    table(temp$state) #territories/States without COVID data = 0
+
+dta<-dta%>%filter(is.na(pop)==FALSE)%>%
+    arrange(state, date)%>%
+    mutate(
+        newcases=cases-lag(cases),
+        newcases=ifelse(state!=lag(state), NA, newcases),
+        
+        newdeaths=deaths-lag(deaths),
+        newdeaths=ifelse(state!=lag(state), NA, newdeaths),
+        
+        incidence=round(100000*cases/pop, 1), # confiremd cases per 100,000 pop
+        cfr=round(100*deaths/cases, 1), # deaths per 100 confirmed cases   
+        mortality=round(100000*deaths/pop, 1) # deaths per 100000 pop
+    )%>%arrange(state, date)%>%
+    mutate(
+        newcasessmooth =c(NA,NA,NA,rollmean(newcases, 7),NA,NA,NA), 
+        newdeathssmooth=c(NA,NA,NA,rollmean(newdeaths, 7),NA,NA,NA), 
+        newcasessmooth=ifelse(state!=lag(state), NA, newcasessmooth),
+        newdeathssmooth=ifelse(state!=lag(state), NA, newdeathssmooth),
+
+        newcasessmoothpp=round(100000*newcasessmooth/pop, 1),   
+        newdeathssmoothpp=round(100000*newdeathssmooth/pop, 1)
+
+    )
+
+#data quality problem: cumulative deaths and acses going down in some cases 
+    
+    summary(dta$newcases)
+    summary(dta$newdeaths)
+    temp<-dta%>%filter(newcases<0 | newdeaths<0)
+    dim(temp)
+    head(temp, nrow(temp))
+    
+    temp<-dta%>%filter(newcasessmooth<0 | newdeathssmooth<0)
+    dim(temp)
+    head(temp, nrow(temp))    
+
+#Force negative smooth numbers to 0 
+
+dta<-dta%>%
+    mutate(
+        newcasessmooth   =ifelse(newcasessmooth<0,    0, newcasessmooth),
+        newcasessmoothpp =ifelse(newcasessmoothpp<0,  0, newcasessmoothpp),
+        newdeathssmooth  =ifelse(newdeathssmooth<0,   0, newdeathssmooth),
+        newdeathssmoothpp=ifelse(newdeathssmoothpp<0, 0, newdeathssmoothpp)
+    )
+```
+
+```{r dtacurve}
+
+dtacurve<-dta%>%filter(incidence>1)
+    
+    length(unique(dtacurve$state))
+    length(unique(dta$state))    
+
+dtacurve<-dtacurve%>%
+    arrange(country, state, date)%>%
+    group_by(state)%>%
+    mutate(
+        day = row_number(),
+        latest=date==max(date)-3, 
+        
+        startdate=min(date),
+        startcases=newcasessmooth,
+            startcases=ifelse(date!=startdate, NA, startcases), 
+        startcasespp=round(100000*startcases/pop, 1))%>%
+    fill(startcases, startcasespp)%>%
+    fill(startcases, startcasespp, .direction = "up")%>%
+    mutate(
+        peakcases=max(newcasessmooth, na.rm = TRUE),
+        peakcasespp=round(100000*peakcases/pop, 1),
+        peakdate=as.character(date),
+            peakdate=ifelse(peakcases!=newcasessmooth, "", peakdate),
+            peakdate=ymd(substring(peakdate, 1)) )%>%
+    fill(peakdate)%>%
+    fill(peakdate, .direction = "up")%>%
+    mutate(
+        endcases=newcasessmooth,
+            endcases=ifelse(date<=peakdate, NA, endcases), 
+            endcases=ifelse(newcasessmooth>startcases, NA, endcases),
+        enddate=as.character(date),
+            enddate=ifelse(is.na(endcases)==TRUE, "", enddate),
+            enddate=ifelse(is.na(lag(endcases))==FALSE & is.na(endcases)==FALSE, "", enddate),
+            enddate=ymd(substring(enddate, 1)))%>%
+    fill(enddate)%>%
+    fill(enddate, .direction = "up")%>%
+    mutate(
+        latestcasespp=newcasessmoothpp, 
+            latestcasespp=ifelse(latest==FALSE, NA, latestcasespp),
+        latestlevel=round((latestcasespp-startcasespp)/(peakcasespp-startcasespp), 3)
+        )%>%
+    fill(latestlevel)%>%
+    fill(latestlevel, .direction = "up")%>%
+    ungroup()%>%
+    select(country, state, date, day, cases, deaths, pop,  incidence, cfr, mortality, starts_with("new"), starts_with("start"), starts_with("peak"), starts_with("end"), starts_with("latest"), -endcases)
+
+
+```
+
+
+####__Supplementary figures for "[Is my state ready to reopen? Seeing is believing](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a)"__  
+
+(Last updated on `r date`)
+
+_Hover over each figure to see values and more options_. States and District of Columbia are color-coded by [USDA's geogrpahic region](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/).   
+
+_See data sources and methods at the end_.  
+
+####__Figure 1. Latest cumulative incidence rate by state__
+
+__Cumulative incidence rate__: number of confirmed cases per 100,000 population. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
+
+(As of `r date`)
+
+```{r statecolor}
+#color by USDA region and division
+#StatesByCensusRegionAndDivision.xlsx
+
+colorlist<- list(color = c(
+ '#fdae61' ,
+ '#a6d96a' ,
+ '#a6d96a' ,
+ '#fee08b' ,
+ '#a6d96a' ,
+ '#a6d96a' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#fee08b' ,
+ '#fee08b' ,
+ '#fee08b' ,
+ '#a6d96a' ,
+ '#a6d96a' ,
+ '#d9ef8b' ,
+ '#d9ef8b' ,
+ '#d9ef8b' ,
+ '#d9ef8b' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#fdae61' ,
+ '#d9ef8b' ,
+ '#d9ef8b' ,
+ '#fdae61' ,
+ '#d9ef8b' ,
+ '#a6d96a' ,
+ '#d9ef8b' ,
+ '#a6d96a' ,
+ '#fdae61' ,
+ '#fdae61' ,
+ '#a6d96a' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#d9ef8b' ,
+ '#d9ef8b' ,
+ '#fee08b' ,
+ '#a6d96a' ,
+ '#fdae61' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#d9ef8b' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#a6d96a' ,
+ '#fdae61' ,
+ '#fee08b' ,
+ '#a6d96a' ,
+ '#fee08b' ,
+ '#d9ef8b' ,
+ '#a6d96a' ))
+```
+
+    
+```{r plotincidence, results="asis", fig.align="left", out.width="800px"}
+
+dtafig<-dtacurve%>%filter(latest==TRUE)    
+
+dtafig$state<-factor(dtafig$state, 
+                    levels = unique(dtafig$state) 
+                    [order(dtafig$incidence, decreasing = TRUE)])
+
+
+plot_ly(dtafig, x=~state, y=~incidence, type = 'bar', marker=colorlist)%>%
+    layout(
+            title = c("COVID-19 confirmed cases per 100,000 population"),     
+            xaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10), 
+                         tickangle=-90),
+            yaxis = list(title = "per 100,000 population") 
+            )
+```
+(Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
+
+####__Figure 2. Latest COVID-19 specific mortaliaty rate by state__
+
+__Mortality rate__: number of COVID-19 deaths per 100,000 population. Considering different testing rates, this may be the most appropriate indicator to compare impact of the epidemic across states - with an assumption that states are similar in terms of their capacity to identify and report deaths due to COVID-19. 
+
+(As of `r date`)
+
+```{r plotmortality, results="asis", fig.align="left", out.width="800px"}
+
+dtafig<-dtacurve%>%filter(latest==TRUE)     
+
+dtafig$state<-factor(dtafig$state, 
+                    levels = unique(dtafig$state) 
+                    [order(dtafig$mortality, decreasing = TRUE)])
+
+plot_ly(dtafig, x=~state, y=~mortality, type = 'bar', marker=colorlist,
+              name= "State")%>%
+    layout(
+            title = c("COVID-19 deaths per 100,000 population"),     
+            xaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10), 
+                         tickangle=-90),
+            yaxis = list(title = "per 100,000 population") 
+            )
+
+```
+(Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
+
+####__Figure 3. Latest case fatality rate by state__
+
+And, for those who wonder about __Case fatality rate__ (CFR): number of deaths per 100 confirmed cases. CFR is sensitive to demographic and clinical characteristics of patients. CFR can be high in states where testing has been limited to only people with clinical symptoms. 
+
+(As of `r date`)
+
+```{r plotcfr, results="asis", fig.align="left", out.width="800px"}
+
+dtafig<-dtacurve%>%filter(latest==TRUE)    
+
+dtafig$state<-factor(dtafig$state, 
+                    levels = unique(dtafig$state) 
+                    [order(dtafig$cfr, decreasing = TRUE)])
+
+plot_ly(dtafig, x=~state, y=~cfr, type = 'bar', marker=colorlist,
+              name= "State")%>%
+    layout(
+            title = c("COVID-19 deaths per 100 confirmed cases (Case Fatality Rate)"),     
+            xaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10), 
+                         tickangle=-90),
+            yaxis = list(title = "deaths per 100 confirmed cases") 
+            )
+```
+(Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
+
+####__Figure 4. Timeline of the first wave by state__
+
+Note, the peak length is still to be determined in many states (with no yellow dot below). 
+
+```{r plottimeline, results="asis", fig.align="left", out.width="800px", out.height="1000px"  }
+
+#To summarize, below first shows the timeline of the first wave and its phases. _The entire length of the peak is still to be determined in most states (with no yellow dot below)_.
+
+
+dtafig<-dtacurve%>%filter(latest==TRUE) 
+
+dtafig$state <- factor(dtafig$state, 
+                         levels = unique(dtafig$state)
+                         [order(dtafig$startdate, decreasing = TRUE)])
+
+
+plot_ly(dtafig, color = I("gray80"))%>%
+    add_segments(x = ~startdate, xend = ~peakdate, y = ~state, yend = ~state, showlegend = FALSE)%>% 
+    add_segments(x = ~peakdate, xend = ~enddate, y = ~state, yend = ~state, showlegend = FALSE)%>% 
+    add_markers(x = ~startdate, y = ~state, name = "Pre-peak phase starts", color = I("#f03b20"))%>% 
+    add_markers(x = ~peakdate, y = ~state, name = "Post-peak phase starts", color = I("#fd8d3c"))%>% 
+    add_markers(x = ~enddate, y = ~state, name = "Stable phase starts", color = I("#fed976") )%>%
+layout(
+    title="Timeline of the first wave of COVID-19", 
+    yaxis = list(title=""),  
+    xaxis = list(title="Date",tickfont = list(size=10)),
+    legend = list(orientation = 'v',legendfont = list(size=8)))
+
+```
+
+####__Figure 5. Height of the peak by state__
+
+The following compares the height of the peak (the maximum number of new cases per 100,000 population) by state.      
+
+```{r plotheight, results="asis", fig.align="left", out.width="800px" }
+
+dtafig<-dtacurve%>%filter(latest==TRUE) 
+
+dtafig$state <- factor(dtafig$state, 
+                         levels = unique(dtafig$state)
+                         [order(dtafig$peakcasespp, decreasing = TRUE)])
+
+plot_ly(dtafig, x=~state, y=~peakcasespp, 
+        type = 'bar', marker=colorlist)%>%
+    layout(
+    yaxis = list(title="Peak number of new cases per 100,000 population"),  
+    xaxis = list(title="",tickfont = list(size=10))  )
+
+```
+
+####__Figure 6. Height of and time to the peak by state__
+
+And, if we put together the height of the peak (on a log scale, Y axis) and time to the peak (distance between the red and orange dots above)...       
+
+```{r plotheightlength, results="asis", fig.align="left", out.width="800px"}
+
+dtafig<-dtacurve%>%filter(latest==TRUE)%>%
+    mutate(length=peakdate-startdate)
+
+textlist <- list(
+  size = 8,
+  color = toRGB("grey30"))
+
+plot_ly(dtafig, x=~length, y=~peakcasespp, 
+        type = 'scatter', marker=colorlist,  
+        text = ~state)%>%
+    add_text(textfont = textlist, textposition = "top")%>%
+    layout(
+    showlegend=FALSE, 
+    title="Length* and height of the peak",    
+    yaxis = list(title="Peak number of new cases per 100,000 population", type = "log"),  
+    xaxis = list(title="Number of days between start to peak",tickfont = list(size=10))  )
+
+```
+
+---
+
+__ANNEX__  
+
+__Data__:  
+1. All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data), accessed on `r date`.  
+2. All data on state population come from [US Census Bureau](https://www.census.gov/data/tables/time-series/demo/popest/2010s-counties-total.html#par_textimage), accessed on March 29, 2020.       
+Note on comparability. JHU/CSSE compiles the best available data, but a definition of confirmed cases (even COVID-19 deaths) may differ across states and even within a state over time. 
+
+__Mesures__:  
+The number of new confirmed cases on each date was calculated based on the difference between cumulative numbers over two consecutive days. Then, a seven-day rolling average was calculated (hereinafter referred to as the smoothed number of new confirmed cases) to avoid any isolated peaks/drops, which can be caused by various reasons other than the true course of the epidemic itself (e.g., definition change, lab process delay, data errors). Then, the smoothed number was divided by the total population in the state: __the smoothed number of new confirmed cases per 100,000 population__. Still any abrupt changes over time given a state should be interpreted carefully.  
+
+* __The first wave__ was defined to start when the cumulative incidence rate exceeds one per 100,000 population. The smoothed number of new confirmed cases at the start of the first wave varies across states, but it averages around 0.5 per 100,000.   
+* __The peak date of the wave__ was the date when the smoothed number of new confirmed cases per 100,000 population was at its height.   
+* __The date entering the stable phase__ was when the smoothed number of new confirmed cases per 100,000 population was less than the number on the start date of the wave.  
+
+In the phase 2, states were further categorized based on % decrease from the peak, adjusted for the base level.  
+
+---
+
+<p style="color:gray">
+See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
+For typos, errors, and questions, contact me at [www.isquared.global]("https://www.iSquared.global/YJ")</p>
+
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.

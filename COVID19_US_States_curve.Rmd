@@ -1,0 +1,590 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: true
+---
+```{r intro, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(echo=FALSE, 
+                      message=FALSE, 
+                      comment = "", 
+                      warning=FALSE, 
+                      results="hide") 
+
+date<-as.Date(Sys.time(	), format='%d%b%Y')
+time<-Sys.time()
+
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressMessages(library(plotly))
+suppressMessages(library(Matrix))
+suppressMessages(library(stringr))
+suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressWarnings(suppressMessages(library(lubridate)))
+suppressWarnings(suppressMessages(library(zoo)))
+```
+
+```{r dtaPop}
+#estimates:Total population, both sexes combined, as of 1 July (thousands)
+dtapop<-read.csv("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
+
+dtapop<-dtapop%>%
+    mutate(state=as.character(STNAME), 
+           pop=as.numeric(POPESTIMATE2019))%>%
+    filter(COUNTY==0)%>%
+    select(state, pop)
+
+str(dtapop)
+length(unique(dtapop$state))
+```
+
+
+```{r dtaCOVID}
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv"
+
+dtacases<-read.csv(url)%>%
+    rename(country = Country_Region,
+           state = Province_State,
+           county = Admin2)%>%
+    select(country, state, county, FIPS, Combined_Key, starts_with("X"))%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           cases = value)%>%
+    mutate(country=as.character(country),
+           state=as.character(state),
+           county=as.character(county))%>%
+    select(country, state, date, cases)%>%
+    group_by(country, state, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_US.csv"
+
+dtadeaths<-read.csv(url)%>%
+    rename(
+           state = Province_State,
+           county = Admin2)%>%
+    select(state, county, FIPS, Combined_Key, starts_with("X"))%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           deaths = value)%>%
+    mutate(
+           state=as.character(state),
+           county=as.character(county))%>%
+    select(state, date, deaths)%>%
+    group_by(state, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+str(dtacases)
+str(dtadeaths)
+
+dtacovid<-left_join(dtacases, dtadeaths, by = c("state", "date"))%>%
+    mutate(date=mdy(substring(date, 2)) )
+
+dim(dtacases)
+dim(dtadeaths)
+dim(dtacovid)
+```
+
+```{r dta}
+str(dtacovid)
+str(dtapop)
+
+dta<-full_join(dtacovid, dtapop, by = "state")
+
+dim(dtacovid)
+dim(dtapop)
+dim(dta)
+
+    temp<-dta%>%filter(is.na(pop)==TRUE) 
+    table(temp$state) #territories without pop: DROP THESE below
+    
+    temp<-dta%>%filter(is.na(cases)==TRUE)
+    table(temp$state) #territories/States without COVID data = 0
+
+dta<-dta%>%filter(is.na(pop)==FALSE)%>%
+    arrange(state, date)%>%
+    mutate(
+        newcases=cases-lag(cases),
+        newcases=ifelse(state!=lag(state), NA, newcases),
+        
+        newdeaths=deaths-lag(deaths),
+        newdeaths=ifelse(state!=lag(state), NA, newdeaths),
+        
+        incidence=round(100000*cases/pop, 3), # confiremd cases per 100,000 pop
+        cfr=round(100*deaths/cases, 3), # deaths per 100 confirmed cases   
+        mortality=round(100000*deaths/pop, 3) # deaths per 100000 pop
+    )%>%arrange(state, date)%>%
+    mutate(
+        newcasessmooth =c(NA,NA,NA,rollmean(newcases, 7),NA,NA,NA), 
+        newdeathssmooth=c(NA,NA,NA,rollmean(newdeaths, 7),NA,NA,NA), 
+        newcasessmooth=ifelse(state!=lag(state), NA, newcasessmooth),
+        newdeathssmooth=ifelse(state!=lag(state), NA, newdeathssmooth),
+        newcasessmooth =round(newcasessmooth, 3),  
+        newdeathssmooth=round(newdeathssmooth, 3),
+
+        newcasessmoothpp=round(100000*newcasessmooth/pop, 3),   
+        newdeathssmoothpp=round(100000*newdeathssmooth/pop, 3)
+
+    )
+
+#data quality problem: cumulative deaths and acses going down in some cases 
+    
+    summary(dta$newcases)
+    summary(dta$newdeaths)
+    temp<-dta%>%filter(newcases<0 | newdeaths<0)
+    dim(temp)
+    head(temp, nrow(temp))
+    
+    temp<-dta%>%filter(newcasessmooth<0 | newdeathssmooth<0)
+    dim(temp)
+    head(temp, nrow(temp))    
+
+#Force negative smooth numbers to 0 
+
+dta<-dta%>%
+    mutate(
+        newcasessmooth   =ifelse(newcasessmooth<0,    0, newcasessmooth),
+        newcasessmoothpp =ifelse(newcasessmoothpp<0,  0, newcasessmoothpp),
+        newdeathssmooth  =ifelse(newdeathssmooth<0,   0, newdeathssmooth),
+        newdeathssmoothpp=ifelse(newdeathssmoothpp<0, 0, newdeathssmoothpp)
+    )
+```
+
+```{r dtacurve}
+
+dtacurve<-dta%>%filter(incidence>1)
+    
+    length(unique(dtacurve$state))
+    length(unique(dta$state))    
+
+dtacurve<-dtacurve%>%
+    arrange(country, state, date)%>%
+    group_by(state)%>%
+    mutate(
+        day = row_number(),
+        latest=date==max(date)-3, 
+        
+        startdate=min(date),
+        startcases=newcasessmooth,
+            startcases=ifelse(date!=startdate, NA, startcases), 
+        startcasespp=round(100000*startcases/pop, 1))%>%
+    fill(startcases, startcasespp)%>%
+    fill(startcases, startcasespp, .direction = "up")%>%
+    mutate(
+        peakcases=max(newcasessmooth, na.rm = TRUE),
+        peakcasespp=round(100000*peakcases/pop, 1),
+        peakdate=as.character(date),
+            peakdate=ifelse(peakcases!=newcasessmooth, "", peakdate),
+            peakdate=ymd(substring(peakdate, 1)) )%>%
+    fill(peakdate)%>%
+    fill(peakdate, .direction = "up")%>%
+    mutate(
+        endcases=newcasessmooth,
+            endcases=ifelse(date<=peakdate, NA, endcases), 
+            endcases=ifelse(newcasessmooth>startcases, NA, endcases),
+        enddate=as.character(date),
+            enddate=ifelse(is.na(endcases)==TRUE, "", enddate),
+            enddate=ifelse(is.na(lag(endcases))==FALSE & is.na(endcases)==FALSE, "", enddate),
+            enddate=ymd(substring(enddate, 1)))%>%
+    fill(enddate)%>%
+    fill(enddate, .direction = "up")%>%
+    mutate(
+        latestcasespp=newcasessmoothpp, 
+            latestcasespp=ifelse(latest==FALSE, NA, latestcasespp),
+        latestlevel=round((latestcasespp-startcasespp)/(peakcasespp-startcasespp), 3)
+        )%>%
+    fill(latestlevel)%>%
+    fill(latestlevel, .direction = "up")%>%
+    ungroup()%>%
+    select(country, state, date, day, cases, deaths, pop,  incidence, cfr, mortality, starts_with("new"), starts_with("start"), starts_with("peak"), starts_with("end"), starts_with("latest"), -endcases)
+
+
+```
+
+
+####__Is my state ready to reopen? Seeing is believing.__  
+
+(Last updated on `r date`. A version as of May 4th was published at [Medium](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a).)
+
+When to reopen? That is the key question that states are asking themselves seven weeks after the White House released its guidelines, "[15 Days to Slow the Spread](https://www.npr.org/2020/03/30/822448199/how-15-days-became-45-trump-extends-guidelines-to-slow-coronavirus)", on March 16.
+
+More recently, [the White House has provided criteria](https://www.whitehouse.gov/openingamerica/#criteria) on when to reopen, including "Downward trajectory of documented cases within a 14-day period." While a "downward trajectory" can be confirmed numerically, it's helpful for those of us who are more visually oriented to see what these curves look like. And for those of us in states that have not yet reopened - and who may be looking on with some envy at those that have - it's natural to want to know how our situations compare and when our state may be ready.
+
+
+####__1. Montana as an example__
+```{r}
+
+temp<-dtacurve%>%filter(state=="Montana") 
+
+startdate<-max(temp$startdate, na.rm = TRUE)
+peakdate<-max(temp$peakdate, na.rm = TRUE)
+peakcasespp<-max(temp$peakcasespp, na.rm = TRUE)
+enddate<-max(temp$enddate, na.rm = TRUE)
+```
+
+Let's use Montana as an example. Daily new cases (the black line, smoothed over 7 days) reached a peak at the end of March and have been declining fairly consistently ever since. Total cases (the grey bars) leveled out at the end of April. Montana clearly meets the White House criterion for "downward trajectory" - and did so by the middle of April (Montana started reopening on April 26).
+ 
+Montana also helps us understand what a complete first wave of infection looks like. There are three distinct phases, that we are calling acceleration, moderation and stabilization:
+ 
+__Phase 1 - Acceleration__ (shaded red): Starts when total cases exceeds 1 per 100,000 population (about 10 in the case of Montana) and ends when daily new cases reaches a peak (about 22 - up from about 4 at the start). In this phase, new and total cases are increasing rapidly, and often exponentially, especially at the start.
+ 
+__Phase 2 - Moderation__ (shaded orange): Starts at the peak and ends when the number of daily new cases has declined to where it was at the start of phase 1 (4 in Montana). During this phase, total cases are still going up, but less quickly, and daily new cases are declining.
+ 
+__Phase 3 - Stabilization__ (shaded yellow): During this phase, new and total cases are essentially flat. Daily new cases are low and manageable, and total cases are growing very slowly. The epidemic is "under control" and if it hasn't already, the state can start reopening with appropriate safeguards in place, with the goal of keeping daily new cases under or close to the threshold that triggered phase 1 (4 in Montana).
+
+_Hover over the figure to see values and more options_. 
+
+```{r plotexamplenumber, fig.align="left", out.width="800px"}
+dtafig<-dtacurve%>%filter(state=="Montana")
+
+shapelist<-list(
+            list(
+                type = "rect",  fillcolor = "#f03b20", 
+                line = list(color = "#f03b20"), opacity = 0.2,
+                x0=min(dtafig$date), x1=max(dtafig$peakdate, na.rm = TRUE),xref = "x",
+                y0=0,y1=min(dtafig$peakcases, na.rm = TRUE), yref = "y") , 
+            list(
+                type = "rect",  fillcolor = "#fd8d3c", 
+                line = list(color = "#fd8d3c"), opacity = 0.2,
+                x0=min(dtafig$peakdate, na.rm = TRUE), x1=max(dtafig$enddate, na.rm = TRUE),xref = "x",
+                y0=0,y1=min(dtafig$peakcases, na.rm = TRUE), yref = "y" ),
+            list(
+                type = "rect",  fillcolor = "#fed976", 
+                line = list(color = "#fed976"), opacity = 0.2,
+                x0=max(dtafig$enddate, na.rm = TRUE),x1=max(dtafig$date),xref = "x",
+                y0=0,y1=min(dtafig$peakcases, na.rm = TRUE), yref = "y" )
+            )
+
+plot_ly(dtafig, x=~date, 
+        y=~newcasessmooth, name="New cases",
+        type='scatter',mode = 'lines', 
+        marker=list(color = c( "black"), size = 1),
+        line=list(color = c( "black"))
+        ) %>%
+    add_trace(
+        y=~cases, name="Total cases", 
+        type='bar', 
+        marker=list(color = c( "lightgray"), size = 1),
+        line=list(color = c( "lightgray")),
+        #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
+        yaxis='y2'
+        )%>%
+    layout(
+        shapes=shapelist, 
+        title = c("Trend of new and total cases during the first wave"),
+        xaxis = list(title = "", tickfont = list(size=10), showgrid = FALSE), 
+        yaxis = list(title = "Number of new cases", 
+                     overlaying='y2', side="left", showgrid = FALSE ),
+        yaxis2 = list(title = "Number of total cases", 
+                     side="right", showgrid = FALSE),
+        margin = list(b = 100, r=100), 
+        legend=list(orientation="h", xanchor = "center", yanchor = "center", 
+                    x = 0.5, y = -0.1)
+        )
+
+```
+
+```{r plotexamplerate, results="asis", fig.align="left", out.width="800px"}
+dtafig<-dtacurve%>%filter(state=="Montana")
+
+shapelist<-list(
+            list(
+                type = "rect",  fillcolor = "#f03b20", 
+                line = list(color = "#f03b20"), opacity = 0.2,
+                x0=min(dtafig$date), x1=max(dtafig$peakdate, na.rm = TRUE),xref = "x",
+                y0=0,y1=45, yref = "y2") , 
+            list(
+                type = "rect",  fillcolor = "#fd8d3c", 
+                line = list(color = "#fd8d3c"), opacity = 0.2,
+                x0=min(dtafig$peakdate, na.rm = TRUE), x1=max(dtafig$enddate, na.rm = TRUE),xref = "x",
+                y0=0,y1=45, yref = "y2" ),
+            list(
+                type = "rect",  fillcolor = "#fed976", 
+                line = list(color = "#fed976"), opacity = 0.2,
+                x0=max(dtafig$enddate, na.rm = TRUE), x1=max(dtafig$date),xref = "x",
+                y0=0,y1=45, yref = "y2" )
+            )
+
+plot_ly(dtafig, x=~date, 
+        y=~newcasessmoothpp, name="New cases",
+        type='scatter',mode = 'lines', 
+        marker=list(color = c( "black"), size = 1),
+        line=list(color = c( "black"))
+        ) %>%
+    add_trace(
+        y=~incidence, name="Total cases", 
+        type='bar', 
+        marker=list(color = c( "lightgray"), size = 1),
+        line=list(color = c( "lightgray")),
+        #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
+        yaxis='y2'
+        )%>%
+    add_segments(x = as.Date("2020-03-20"), xend = as.Date("2020-05-02"), 
+                 y = 0.374, yend = 0.374, yaxis='y', 
+                 marker = list(color = "black", size = 2.2),
+                 line= list(color = "black", dash = 'dot'),
+                 showlegend=FALSE)%>%
+    add_annotations(x = as.Date("2020-04-05"), y = 0.3, yaxis='y',
+                    text="New cases at the start: 4 per day",
+                    showarrow = FALSE, 
+                    font = list(color = "black", size = 15))%>%        
+    add_annotations(x = as.Date("2020-04-05"), y = 2.1, yaxis='y',
+                    text="New cases at the peak: 22 per day" ,
+                    xref = "x", yref = "y", 
+                    showarrow = FALSE, 
+                    font = list(color = "black", size = 15))%>%        
+    layout(
+        shapes=shapelist, 
+        title = c("Trend of new and total cases per 100,000 population during the first wave"),
+        xaxis = list(title = "", tickfont = list(size=10), showgrid = FALSE), 
+        yaxis = list(title = "New cases per 100,000 population", 
+                     range=c(0,2.2), 
+                     overlaying='y2', side="left", showgrid = FALSE ),
+        yaxis2 = list(title = "Total cases per 100,000 population", 
+                      range=c(0,45), 
+                      side="right", showgrid = FALSE),
+        margin = list(b = 100, r=100), 
+        legend=list(orientation="h", xanchor = "center", yanchor = "center", 
+                    x = 0.5, y = -0.1) 
+        
+        )
+
+```
+
+####__2. Riding the wave__
+
+Now let's turn to the other states. While each state has its own unique circumstances when it comes to its politics, economy, etc., certain patterns start to emerge when comparing their first wave curves. We've divided them into four categories depending on where they are on their curves as of May 3. 
+ 
+_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states)_.
+
+```{r}
+# in the stable phase
+temp<-dtacurve%>%filter(is.na(enddate)==FALSE)
+    length(unique(temp$state))    
+    table(temp$state)
+    nstable<-length(unique(temp$state))
+
+# <0.25: close to the stable phase
+temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel<0.25)%>%filter(latest==TRUE)
+    length(unique(temp$state))    
+    table(temp$state)            
+    nalmoststable<-length(unique(temp$state))
+    
+# 0.25-0.5    
+temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%filter(latest==TRUE)
+    length(unique(temp$state))    
+    table(temp$state)            
+    nsomewhatstable<-length(unique(temp$state))
+    
+# 0.5-0.75      
+temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%filter(latest==TRUE)
+    length(unique(temp$state))    
+    table(temp$state) 
+    npossiblystable<-length(unique(temp$state))
+    
+        
+# >=0.75: still around the peak phase
+temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.75)%>%filter(latest==TRUE)
+    length(unique(temp$state))    
+    table(temp$state)    
+```
+
+####__2.1 States in or near phase 3__
+
+Only `r nstable` states, Hawaii and Montana, are in the stabilization phase. Daily new cases are now lower than they were at the beginning of the wave. Reopening can continue as long as they keep a close eye on their daily new cases.
+
+_Hover over the figures to see the underlying data_.
+
+```{r plotSTATES, results="asis", fig.align="left", out.width="400px", out.height="200px"}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp,
+          hoverinfo = 'text',
+          text = ~paste('</br> Day of the first wave: ', day,
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(state),
+    x = 0.5, y = 1, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+    font = list(size = 12)
+  )%>%
+  layout(
+    showlegend = FALSE,
+    yaxis=list(title="New cases per 100,000"  ),
+    xaxis=list(title="" , range=c(0,55))
+    ) 
+
+dtacurve%>%filter(is.na(enddate)==FALSE)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
+```
+
+`r nalmoststable` states (Alaska, Arkansas, Idaho, Louisiana, and Vermont) are near the stabilization phase, with daily new cases down more than 75% from their peak levels. They can start reopening as long as they meet the other White House criteria and have appropriate safeguards in place.
+ 
+It is worth mentioning that Louisiana is in this group. The state had more than 30 daily new cases per 100,000 at one point - substantially more than other states in this group - but has reduced the number fairly quickly and consistently.
+ 
+_Hover over the figures to see the underlying data_.
+
+```{r plotSTATES1, results="asis", fig.align="left", out.width="800px", out.height="200px"}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp,
+          hoverinfo = 'text',
+          text = ~paste('</br> Day of the first wave: ', day,
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(state),
+    x = 0.5, y = 1, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+    font = list(size = 12)
+  )%>%
+  layout(
+    showlegend = FALSE,
+    yaxis=list(title="New cases per 100,000" ),
+    xaxis=list(title="" , range=c(0,55))
+    ) 
+
+dtacurve%>%filter(is.na(enddate)==TRUE & latestlevel<0.25)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 1, shareX = TRUE, shareY = FALSE)  
+```
+
+####__2.2 States in late phase 2__
+
+`r nsomewhatstable` states, including New York, are in the late moderation phase, with __daily new cases down 50-75% from their peaks__. They are on a trajectory to reach phase 3 as long as they don't relax their current safeguards, and can start actively planning for reopening.
+ 
+_Hover over the figures to see the underlying data_.
+
+```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp,
+          hoverinfo = 'text',
+          text = ~paste('</br> Day of the first wave: ', day,
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(state),
+    x = 0.5, y = 1, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+    font = list(size = 12)
+  )%>%
+  layout(
+    showlegend = FALSE,
+    yaxis=list(title="New cases per 100,000" ),
+    xaxis=list(title="" , range=c(0,55))
+    ) 
+
+dtacurve%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 2, shareX = TRUE, shareY = FALSE)  
+```
+
+####__2.3 States in early phase 2__
+
+`r npossiblystable` states are in the early moderation phase, with __daily new cases down 25-50% from their peaks__. They have made progress, but should not relax their current safeguards. They can start planning for reopening, but reducing new cases remains their top priority. 
+
+_Hover over the figures to see the underlying data_.
+
+```{r plotSTATES3, results="asis", fig.align="left", out.width="800px", out.height="500px"}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp,
+          hoverinfo = 'text',
+          text = ~paste('</br> Day of the first wave: ', day,
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(state),
+    x = 0.5, y = 1, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+    font = list(size = 12)
+  )%>%
+  layout(
+    showlegend = FALSE,
+    yaxis=list(title="New cases per 100,000" ),
+    xaxis=list(title="" , range=c(0,55))
+    ) 
+
+dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
+
+
+```
+
+####__2.4 States in or still near phase 1__
+
+Unfortunately, the majority of states have not yet reached or are still close to their peaks, with daily new cases either increasing, stalled, or down less than 25% from their peaks. Rather than relaxing their safeguards, they should instead be considering strengthening them.  
+ 
+_Hover over the figures to see the underlying data_.
+
+```{r plotSTATES4, results="asis", fig.align="left", out.width="800px", out.height="1200px"}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp,
+          hoverinfo = 'text',
+          text = ~paste('</br> Day of the first wave: ', day,
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(state),
+    x = 0.5, y = 1, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+    font = list(size = 12)
+  )%>%
+  layout(
+    showlegend = FALSE,
+    yaxis=list(title="New cases per 100,000" ),
+    xaxis=list(title="" , range=c(0,55))
+    ) 
+
+dtacurve%>%filter(latestlevel>=0.75)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 7, shareX = TRUE, shareY = FALSE)  
+
+fig1<-dtacurve%>%filter(latestlevel>=0.75 & peakcasespp<10)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 4, shareX = TRUE, shareY = TRUE)  
+
+fig2<-dtacurve%>%filter(latestlevel>=0.75 & peakcasespp>=10)%>%
+    group_by(state) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+```
+
+Clearly, some states are already at a stage to consider reopening now or in the near future, at least from an epidemiological point of view. The majority of states, however, still need to prioritize slowing new cases and controlling the epidemic.
+
+---
+
+All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data), accessed on `r date`. All data on state population come from [US Census Bureau](https://www.census.gov/data/tables/time-series/demo/popest/2010s-counties-total.html#par_textimage), accessed on March 29, 2020.   
+
+For those interested in the methods and more data by state, [please see this](https://rpubs.com/YJ_Choi/COVID19_US_supplement).   
+
+For those interested in the US curve, compared to other countries, [please see this](https://medium.com/@yj.choi.isquared/flattening-covid-19-curve-in-south-korea-and-comparison-among-oecd-countries-singapore-and-taiwan-ae211a5645c9). 
+
+---
+
+<p style="color:gray">
+See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
+For typos, errors, and questions, contact me at [www.isquared.global]("https://www.iSquared.global/YJ")</p>
+
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.
