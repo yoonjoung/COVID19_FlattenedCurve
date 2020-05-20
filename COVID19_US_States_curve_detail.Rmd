@@ -207,7 +207,7 @@ dtacurve<-dtacurve%>%
 
 ####__Supplementary figures for "[Is my state ready to reopen? Seeing is believing](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a)"__  
 
-(Last updated on `r date`)
+(Last updated on `r time`)
 
 _Hover over each figure to see values and more options_. States and District of Columbia are color-coded by [USDA's geogrpahic region](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/).   
 
@@ -224,7 +224,7 @@ __Cumulative incidence rate__: number of confirmed cases per 100,000 population.
 #StatesByCensusRegionAndDivision.xlsx
 
 colorlist<- list(color = c(
- '#fdae61' ,
+ '#fee08b' ,
  '#a6d96a' ,
  '#a6d96a' ,
  '#fee08b' ,
@@ -241,14 +241,14 @@ colorlist<- list(color = c(
  '#d9ef8b' ,
  '#d9ef8b' ,
  '#d9ef8b' ,
- '#fdae61' ,
+ '#fee08b' ,
  '#fee08b' ,
  '#fdae61' ,
  '#fee08b' ,
  '#fdae61' ,
  '#d9ef8b' ,
  '#d9ef8b' ,
- '#fdae61' ,
+ '#fee08b' ,
  '#d9ef8b' ,
  '#a6d96a' ,
  '#d9ef8b' ,
@@ -266,7 +266,7 @@ colorlist<- list(color = c(
  '#fdae61' ,
  '#fee08b' ,
  '#d9ef8b' ,
- '#fdae61' ,
+ '#fee08b' ,
  '#fee08b' ,
  '#a6d96a' ,
  '#fdae61' ,
@@ -454,6 +454,6 @@ In the phase 2, states were further categorized based on % decrease from the pea
 
 <p style="color:gray">
 See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
-For typos, errors, and questions, contact me at [www.isquared.global]("https://www.iSquared.global/YJ")</p>
+For typos, errors, and questions, contact me at [www.isquared.global](https://www.iSquared.global/YJ). 
 
-_Making Data Delicious, One Byte at a Time_, in good times and bad times.
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.</p>

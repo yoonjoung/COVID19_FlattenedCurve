@@ -209,7 +209,7 @@ dtacurve<-dtacurve%>%
 
 ####__Is my state ready to reopen? Seeing is believing.__  
 
-(Last updated on `r date`. A version as of May 4th was published at [Medium](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a).)
+(Last updated on `r time`. A version as of May 4th was published at [Medium](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a).)
 
 When to reopen? That is the key question that states are asking themselves seven weeks after the White House released its guidelines, "[15 Days to Slow the Spread](https://www.npr.org/2020/03/30/822448199/how-15-days-became-45-trump-extends-guidelines-to-slow-coronavirus)", on March 16.
 
@@ -324,7 +324,7 @@ plot_ly(dtafig, x=~date,
         #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
         yaxis='y2'
         )%>%
-    add_segments(x = as.Date("2020-03-20"), xend = as.Date("2020-05-02"), 
+    add_segments(x = min(dtafig$date), xend = max(dtafig$date), 
                  y = 0.374, yend = 0.374, yaxis='y', 
                  marker = list(color = "black", size = 2.2),
                  line= list(color = "black", dash = 'dot'),
@@ -359,8 +359,6 @@ plot_ly(dtafig, x=~date,
 ####__2. Riding the wave__
 
 Now let's turn to the other states. While each state has its own unique circumstances when it comes to its politics, economy, etc., certain patterns start to emerge when comparing their first wave curves. We've divided them into four categories depending on where they are on their curves as of May 3. 
- 
-_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states)_.
 
 ```{r}
 # in the stable phase
@@ -374,7 +372,7 @@ temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel<0.25)%>%filte
     length(unique(temp$state))    
     table(temp$state)            
     nalmoststable<-length(unique(temp$state))
-    
+    listalmoststable<-unique(temp$state)    
 # 0.25-0.5    
 temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%filter(latest==TRUE)
     length(unique(temp$state))    
@@ -392,15 +390,18 @@ temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.5 & latest
 temp<-dtacurve%>%filter(is.na(enddate)==TRUE)%>%filter(latestlevel>=0.75)%>%filter(latest==TRUE)
     length(unique(temp$state))    
     table(temp$state)    
+    nnoway<-length(unique(temp$state))
 ```
 
 ####__2.1 States in or near phase 3__
 
-Only `r nstable` states, Hawaii and Montana, are in the stabilization phase. Daily new cases are now lower than they were at the beginning of the wave. Reopening can continue as long as they keep a close eye on their daily new cases.
+Only `r nstable` states (Alaska, Hawaii, Montana, and Vermont), are in the stabilization phase. Daily new cases are now lower than they were at the beginning of the wave. Reopening can continue as long as they keep a close eye on their daily new cases.
+
+_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is the number of new cases at the start of the first wave_.
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES, results="asis", fig.align="left", out.width="400px", out.height="200px"}
+```{r plotSTATES, results="asis", fig.align="left", out.width="800px", out.height="200px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -408,7 +409,9 @@ panel <- . %>%
           text = ~paste('</br> Day of the first wave: ', day,
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_lines() %>%
+  add_lines(y = ~startcasespp,
+            line= list(color = "gray", dash = 'dot') ) %>%
   add_annotations(
     text = ~unique(state),
     x = 0.5, y = 1, xref = "paper", yref = "paper",    
@@ -418,7 +421,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000"  ),
-    xaxis=list(title="" , range=c(0,55))
+    xaxis=list(title="" , range=c(0,65))
     ) 
 
 dtacurve%>%filter(is.na(enddate)==FALSE)%>%
@@ -427,10 +430,12 @@ dtacurve%>%filter(is.na(enddate)==FALSE)%>%
     subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
 ```
 
-`r nalmoststable` states (Alaska, Arkansas, Idaho, Louisiana, and Vermont) are near the stabilization phase, with daily new cases down more than 75% from their peak levels. They can start reopening as long as they meet the other White House criteria and have appropriate safeguards in place.
- 
-It is worth mentioning that Louisiana is in this group. The state had more than 30 daily new cases per 100,000 at one point - substantially more than other states in this group - but has reduced the number fairly quickly and consistently.
- 
+`r nalmoststable` states are near the stabilization phase, with daily new cases down more than 75% from their peak levels. They can start reopening as long as they meet the other White House criteria and have appropriate safeguards in place.
+
+* __New York__ joined this group on May 13th. The state had more than 50 daily new cases per 100,000 at one point - the highest peak among all states. Big admiration to all who made this progress possible in New York State!   
+
+_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 75% down from the peak in each state_.  
+
 _Hover over the figures to see the underlying data_.
 
 ```{r plotSTATES1, results="asis", fig.align="left", out.width="800px", out.height="200px"}
@@ -441,7 +446,9 @@ panel <- . %>%
           text = ~paste('</br> Day of the first wave: ', day,
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_lines() %>%
+  add_lines(y = ~level25,
+            line= list(color = "gray", dash = 'dot') ) %>%    
   add_annotations(
     text = ~unique(state),
     x = 0.5, y = 1, xref = "paper", yref = "paper",    
@@ -451,10 +458,11 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,55))
+    xaxis=list(title="" , range=c(0,65))
     ) 
 
 dtacurve%>%filter(is.na(enddate)==TRUE & latestlevel<0.25)%>%
+    mutate(level25=(peakcasespp-startcasespp)*0.25 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
     subplot(nrows = 1, shareX = TRUE, shareY = FALSE)  
@@ -462,8 +470,13 @@ dtacurve%>%filter(is.na(enddate)==TRUE & latestlevel<0.25)%>%
 
 ####__2.2 States in late phase 2__
 
-`r nsomewhatstable` states, including New York, are in the late moderation phase, with __daily new cases down 50-75% from their peaks__. They are on a trajectory to reach phase 3 as long as they don't relax their current safeguards, and can start actively planning for reopening.
- 
+`r nsomewhatstable` states are in the late moderation phase, with __daily new cases down 50-75% from their peaks__. They are on a trajectory to reach phase 3 as long as they don't relax their current safeguards, and can start actively planning for reopening.
+
+* __Louisiana__ is the first among states with a high peak that made "near phase 3" in late April. At the peak, there were more than 30 daily new cases per 100,000 at one point, but the number of new cases has reduced fairly quickly and consistently. However, _the number of new cases has remained at the threshold level for a few weeks, without further progress_. The state has been going between the "near phase 3" and "late phase 2" groups.        
+* In __Washington__, it is notable that the downward trajectory has stopped since mid April, after the number of new cases rapidly declined before then.   
+
+_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 50% down from the peak in each state_.  
+
 _Hover over the figures to see the underlying data_.
 
 ```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="400px"}
@@ -474,7 +487,9 @@ panel <- . %>%
           text = ~paste('</br> Day of the first wave: ', day,
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_lines() %>%
+  add_lines(y = ~level50,
+            line= list(color = "gray", dash = 'dot') ) %>%   
   add_annotations(
     text = ~unique(state),
     x = 0.5, y = 1, xref = "paper", yref = "paper",    
@@ -484,22 +499,28 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,55))
+    xaxis=list(title="" , range=c(0,65))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%
+    mutate(level50=(peakcasespp-startcasespp)*0.5 + startcasespp)%>%
+    mutate(level25=(peakcasespp-startcasespp)*0.25 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
 ```
 
 ####__2.3 States in early phase 2__
 
-`r npossiblystable` states are in the early moderation phase, with __daily new cases down 25-50% from their peaks__. They have made progress, but should not relax their current safeguards. They can start planning for reopening, but reducing new cases remains their top priority. 
+`r npossiblystable` states are in the early moderation phase, with __daily new cases down 25-50% from their peaks__. They have made progress, but should not relax their current safeguards. They can start planning for reopening, but reducing new cases remains their top priority.   
+
+* __Arkansas__ once was categorized to be "near phase 3" in early May, but the number of new cases rebounded.    
+
+_Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 25% down from the peak in each state_.  
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES3, results="asis", fig.align="left", out.width="800px", out.height="500px"}
+```{r plotSTATES3, results="asis", fig.align="left", out.width="800px", out.height="1000px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -507,7 +528,9 @@ panel <- . %>%
           text = ~paste('</br> Day of the first wave: ', day,
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_lines() %>%
+  add_lines(y = ~level75,
+            line= list(color = "gray", dash = 'dot') ) %>%    
   add_annotations(
     text = ~unique(state),
     x = 0.5, y = 1, xref = "paper", yref = "paper",    
@@ -517,24 +540,26 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,55))
+    xaxis=list(title="" , range=c(0,65))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
+    mutate(level75=(peakcasespp-startcasespp)*0.75 + startcasespp)%>%
+    mutate(level50=(peakcasespp-startcasespp)*0.5 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 5, shareX = TRUE, shareY = FALSE)  
 
 
 ```
 
 ####__2.4 States in or still near phase 1__
 
-Unfortunately, the majority of states have not yet reached or are still close to their peaks, with daily new cases either increasing, stalled, or down less than 25% from their peaks. Rather than relaxing their safeguards, they should instead be considering strengthening them.  
+Unfortunately, `r nnoway` states have not yet reached or are still close to their peaks, with daily new cases either increasing, stalled, or down less than 25% from their peaks. Rather than relaxing their safeguards, they should instead be considering strengthening them.  
  
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES4, results="asis", fig.align="left", out.width="800px", out.height="1200px"}
+```{r plotSTATES4, results="asis", fig.align="left", out.width="800px", out.height="1100px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -552,23 +577,16 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,55))
+    xaxis=list(title="" , range=c(0,65))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.75)%>%
+    mutate(level75=(peakcasespp-startcasespp)*0.75 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 7, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 6, shareX = TRUE, shareY = FALSE)  
 
-fig1<-dtacurve%>%filter(latestlevel>=0.75 & peakcasespp<10)%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 4, shareX = TRUE, shareY = TRUE)  
 
-fig2<-dtacurve%>%filter(latestlevel>=0.75 & peakcasespp>=10)%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
 ```
 
 Clearly, some states are already at a stage to consider reopening now or in the near future, at least from an epidemiological point of view. The majority of states, however, still need to prioritize slowing new cases and controlling the epidemic.
@@ -585,6 +603,6 @@ For those interested in the US curve, compared to other countries, [please see t
 
 <p style="color:gray">
 See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
-For typos, errors, and questions, contact me at [www.isquared.global]("https://www.iSquared.global/YJ")</p>
+For typos, errors, and questions, contact me at [www.isquared.global](https://www.iSquared.global/YJ). 
 
-_Making Data Delicious, One Byte at a Time_, in good times and bad times.
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.</p>
