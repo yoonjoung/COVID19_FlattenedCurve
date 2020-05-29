@@ -558,13 +558,13 @@ plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia",
     layout(showlegend=TRUE,
            xaxis = list(title = "Day since start of the first wave", 
                         tickfont = list(size=10),
-                        range=c(0,70) ), 
+                        range=c(0,90) ), 
            yaxis = list(title = "Daily new confirmed cases per 100,000 population") 
            )
 
 ```
 
-```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="800px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -590,7 +590,7 @@ panel <- . %>%
     layout(
         showlegend = FALSE,
         title = c("Trend of daily new confirmed cases per 100,000 population since the first wave"),
-        xaxis=list(range=c(0,80), showgrid = FALSE), 
+        xaxis=list(range=c(0,90), showgrid = FALSE), 
         yaxis=list( title="", showgrid = FALSE) 
     )
 
@@ -599,7 +599,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 4, shareX = TRUE, shareY = FALSE)    
+    subplot(nrows = 5, shareX = TRUE, shareY = FALSE)    
 
 
 
@@ -713,7 +713,7 @@ panel <- . %>%
     showlegend = FALSE,
     #title = c("Trend of daily new confirmed cases per 100,000 population since the first wave"),
     title = c(""),
-    xaxis=list(range=c(0,80)), 
+    xaxis=list(range=c(0,90)), 
     yaxis=list(range=c(0,4), title="") 
   )
 
@@ -750,7 +750,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     title = c(""),
-    xaxis=list(range=c(0,80), title=""), 
+    xaxis=list(range=c(0,90), title=""), 
     yaxis=list(range=c(0,15), title="") 
   )
 
@@ -764,7 +764,7 @@ dtafig%>%
     subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
 ```
 
-```{r plotSKunlike3, results="asis", fig.align="left", out.width="620px", out.height="200px"}
+```{r plotSKunlike3, results="asis", fig.align="left", out.width="420px", out.height="200px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -786,7 +786,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     title = c(""),
-    xaxis=list(range=c(0,80), title=""), 
+    xaxis=list(range=c(0,90), title=""), 
     yaxis=list(title="") 
   )
 

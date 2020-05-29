@@ -421,7 +421,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000"  ),
-    xaxis=list(title="" , range=c(0,65))
+    xaxis=list(title="" , range=c(0,80))
     ) 
 
 dtacurve%>%filter(is.na(enddate)==FALSE)%>%
@@ -432,7 +432,11 @@ dtacurve%>%filter(is.na(enddate)==FALSE)%>%
 
 `r nalmoststable` states are near the stabilization phase, with daily new cases down more than 75% from their peak levels. They can start reopening as long as they meet the other White House criteria and have appropriate safeguards in place.
 
+* __Louisiana__ is the first among states with a high peak that made "near phase 3" in late April. At the peak, there were more than 30 daily new cases per 100,000 at one point, but the number of new cases has reduced fairly quickly and consistently. However, _the number of new cases has remained at the threshold level for a few weeks, without further progress_. Recently, the state has been going between the "near phase 3" and "late phase 2" groups.   
+
 * __New York__ joined this group on May 13th. The state had more than 50 daily new cases per 100,000 at one point - the highest peak among all states. Big admiration to all who made this progress possible in New York State!   
+
+* Both __Michigan__ and __New Jersey__ joined this group on May 26th. 
 
 _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 75% down from the peak in each state_.  
 
@@ -458,7 +462,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,65))
+    xaxis=list(title="" , range=c(0,80))
     ) 
 
 dtacurve%>%filter(is.na(enddate)==TRUE & latestlevel<0.25)%>%
@@ -472,14 +476,13 @@ dtacurve%>%filter(is.na(enddate)==TRUE & latestlevel<0.25)%>%
 
 `r nsomewhatstable` states are in the late moderation phase, with __daily new cases down 50-75% from their peaks__. They are on a trajectory to reach phase 3 as long as they don't relax their current safeguards, and can start actively planning for reopening.
 
-* __Louisiana__ is the first among states with a high peak that made "near phase 3" in late April. At the peak, there were more than 30 daily new cases per 100,000 at one point, but the number of new cases has reduced fairly quickly and consistently. However, _the number of new cases has remained at the threshold level for a few weeks, without further progress_. The state has been going between the "near phase 3" and "late phase 2" groups.        
 * In __Washington__, it is notable that the downward trajectory has stopped since mid April, after the number of new cases rapidly declined before then.   
 
 _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 50% down from the peak in each state_.  
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="700px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -499,7 +502,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,65))
+    xaxis=list(title="" , range=c(0,80))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%
@@ -507,14 +510,12 @@ dtacurve%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%
     mutate(level25=(peakcasespp-startcasespp)*0.25 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 4, shareX = TRUE, shareY = FALSE)  
 ```
 
 ####__2.3 States in early phase 2__
 
 `r npossiblystable` states are in the early moderation phase, with __daily new cases down 25-50% from their peaks__. They have made progress, but should not relax their current safeguards. They can start planning for reopening, but reducing new cases remains their top priority.   
-
-* __Arkansas__ once was categorized to be "near phase 3" in early May, but the number of new cases rebounded.    
 
 _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small states). The dotted horizontal line is a level 25% down from the peak in each state_.  
 
@@ -540,7 +541,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,65))
+    xaxis=list(title="" , range=c(0,80))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
@@ -556,6 +557,8 @@ dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
 ####__2.4 States in or still near phase 1__
 
 Unfortunately, `r nnoway` states have not yet reached or are still close to their peaks, with daily new cases either increasing, stalled, or down less than 25% from their peaks. Rather than relaxing their safeguards, they should instead be considering strengthening them.  
+
+* __Arkansas__ once was categorized to be "near phase 3" in early May, but the number of new cases rebounded.    
  
 _Hover over the figures to see the underlying data_.
 
@@ -577,7 +580,7 @@ panel <- . %>%
   layout(
     showlegend = FALSE,
     yaxis=list(title="New cases per 100,000" ),
-    xaxis=list(title="" , range=c(0,65))
+    xaxis=list(title="" , range=c(0,80))
     ) 
 
 dtacurve%>%filter(latestlevel>=0.75)%>%

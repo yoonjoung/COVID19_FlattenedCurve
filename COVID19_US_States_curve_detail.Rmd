@@ -213,12 +213,6 @@ _Hover over each figure to see values and more options_. States and District of 
 
 _See data sources and methods at the end_.  
 
-####__Figure 1. Latest cumulative incidence rate by state__
-
-__Cumulative incidence rate__: number of confirmed cases per 100,000 population. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
-
-(As of `r date`)
-
 ```{r statecolor}
 #color by USDA region and division
 #StatesByCensusRegionAndDivision.xlsx
@@ -276,26 +270,58 @@ colorlist<- list(color = c(
  '#d9ef8b' ,
  '#a6d96a' ))
 ```
+####__Figure 0. Latest new cases by state__
 
+__Daily incidence rate (average over a week)__: The most recent 7-day average of new confirmed cases per 100,000 population. 
+
+(As of `r date`)
+
+```{r plotnew, results="asis", fig.align="left", out.width="600px", out.height="800px"}
+
+dtafig<-dtacurve%>%filter(is.na(latestcasespp)==FALSE)%>%filter(date==max(date))  
+
+dtafig$state<-factor(dtafig$state, 
+                    levels = unique(dtafig$state) 
+                    [order(dtafig$latestcasespp, decreasing = FALSE)])
+
+
+plot_ly(dtafig, y=~state, x=~latestcasespp, type = 'bar', orientation='h', marker=colorlist,
+        text = ~latestcasespp, textposition = 'outside')%>%
+    layout(
+            title = c("Daily new COVID-19 cases per 100,000 population"),     
+            yaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "per 100,000 population (latest 7-day average)") 
+            )
+```
+(Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
+
+####__Figure 1. Latest cumulative incidence rate by state__
+
+__Cumulative incidence rate__: number of confirmed cases per 100,000 population. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
+
+(As of `r date`)
     
-```{r plotincidence, results="asis", fig.align="left", out.width="800px"}
+```{r plotincidence, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
 dtafig<-dtacurve%>%filter(latest==TRUE)    
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
-                    [order(dtafig$incidence, decreasing = TRUE)])
+                    [order(dtafig$incidence, decreasing = FALSE)])
 
 
-plot_ly(dtafig, x=~state, y=~incidence, type = 'bar', marker=colorlist)%>%
+plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=colorlist,
+        text = ~incidence, textposition = 'outside')%>%
     layout(
             title = c("COVID-19 confirmed cases per 100,000 population"),     
-            xaxis = list(title = "",  
+            yaxis = list(title = "",  
                          autotick = FALSE,
                          showticklabels = TRUE, 
-                         tickfont = list(size=10), 
-                         tickangle=-90),
-            yaxis = list(title = "per 100,000 population") 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "per 100,000 population") 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
@@ -306,24 +332,24 @@ __Mortality rate__: number of COVID-19 deaths per 100,000 population. Considerin
 
 (As of `r date`)
 
-```{r plotmortality, results="asis", fig.align="left", out.width="800px"}
+```{r plotmortality, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
 dtafig<-dtacurve%>%filter(latest==TRUE)     
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
-                    [order(dtafig$mortality, decreasing = TRUE)])
+                    [order(dtafig$mortality, decreasing = FALSE)])
 
-plot_ly(dtafig, x=~state, y=~mortality, type = 'bar', marker=colorlist,
-              name= "State")%>%
+plot_ly(dtafig, y=~state, x=~mortality, type = 'bar', orientation='h', marker=colorlist,
+        name= "State",
+        text = ~mortality, textposition = 'outside')%>%
     layout(
             title = c("COVID-19 deaths per 100,000 population"),     
-            xaxis = list(title = "",  
+            yaxis = list(title = "",  
                          autotick = FALSE,
                          showticklabels = TRUE, 
-                         tickfont = list(size=10), 
-                         tickangle=-90),
-            yaxis = list(title = "per 100,000 population") 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "per 100,000 population") 
             )
 
 ```
@@ -335,24 +361,24 @@ And, for those who wonder about __Case fatality rate__ (CFR): number of deaths p
 
 (As of `r date`)
 
-```{r plotcfr, results="asis", fig.align="left", out.width="800px"}
+```{r plotcfr, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
 dtafig<-dtacurve%>%filter(latest==TRUE)    
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
-                    [order(dtafig$cfr, decreasing = TRUE)])
+                    [order(dtafig$cfr, decreasing = FALSE)])
 
-plot_ly(dtafig, x=~state, y=~cfr, type = 'bar', marker=colorlist,
-              name= "State")%>%
+plot_ly(dtafig, y=~state, x=~cfr, type = 'bar', orientation='h', marker=colorlist,
+              name= "State",
+        text = ~cfr, textposition = 'outside')%>%
     layout(
             title = c("COVID-19 deaths per 100 confirmed cases (Case Fatality Rate)"),     
-            xaxis = list(title = "",  
+            yaxis = list(title = "",  
                          autotick = FALSE,
                          showticklabels = TRUE, 
-                         tickfont = list(size=10), 
-                         tickangle=-90),
-            yaxis = list(title = "deaths per 100 confirmed cases") 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "deaths per 100 confirmed cases") 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
@@ -391,16 +417,17 @@ layout(
 
 The following compares the height of the peak (the maximum number of new cases per 100,000 population) by state.      
 
-```{r plotheight, results="asis", fig.align="left", out.width="800px" }
+```{r plotheight, results="asis", fig.align="left", out.width="600px", out.height="800px" }
 
 dtafig<-dtacurve%>%filter(latest==TRUE) 
 
 dtafig$state <- factor(dtafig$state, 
                          levels = unique(dtafig$state)
-                         [order(dtafig$peakcasespp, decreasing = TRUE)])
+                         [order(dtafig$peakcasespp, decreasing = FALSE)])
 
-plot_ly(dtafig, x=~state, y=~peakcasespp, 
-        type = 'bar', marker=colorlist)%>%
+plot_ly(dtafig, y=~state, x=~peakcasespp, 
+        type = 'bar', orientation='h', marker=colorlist,
+        text = ~peakcasespp, textposition = 'outside')%>%
     layout(
     yaxis = list(title="Peak number of new cases per 100,000 population"),  
     xaxis = list(title="",tickfont = list(size=10))  )
