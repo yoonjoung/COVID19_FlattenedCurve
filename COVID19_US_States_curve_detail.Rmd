@@ -193,7 +193,7 @@ dtacurve<-dtacurve%>%
     fill(enddate, .direction = "up")%>%
     mutate(
         latestcasespp=newcasessmoothpp, 
-            latestcasespp=ifelse(latest==FALSE, NA, latestcasespp),
+        latestcasespp=ifelse(latest==FALSE, NA, latestcasespp),
         latestlevel=round((latestcasespp-startcasespp)/(peakcasespp-startcasespp), 3)
         )%>%
     fill(latestlevel)%>%
@@ -270,9 +270,9 @@ colorlist<- list(color = c(
  '#d9ef8b' ,
  '#a6d96a' ))
 ```
-####__Figure 0. Latest new cases by state__
+####__Figure 1. Latest rate of daily new cases by state__
 
-__Daily incidence rate (average over a week)__: The most recent 7-day average of new confirmed cases per 100,000 population. 
+__Daily incidence rate__: The most recent 7-day average of new confirmed cases per day per 100,000 population. 
 
 (As of `r date`)
 
@@ -293,14 +293,15 @@ plot_ly(dtafig, y=~state, x=~latestcasespp, type = 'bar', orientation='h', marke
                          autotick = FALSE,
                          showticklabels = TRUE, 
                          tickfont = list(size=10)),
-            xaxis = list(title = "per 100,000 population (latest 7-day average)") 
+            xaxis = list(title = "per 100,000 population", 
+                         range=c(0,18)) 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
 
-####__Figure 1. Latest cumulative incidence rate by state__
+####__Figure 2. Cumulative COVID-19 incidence rate by state__
 
-__Cumulative incidence rate__: number of confirmed cases per 100,000 population. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
+__Cumulative incidence rate__: number of confirmed cases __per 100,000 population__. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
 
 (As of `r date`)
     
@@ -321,14 +322,15 @@ plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=co
                          autotick = FALSE,
                          showticklabels = TRUE, 
                          tickfont = list(size=10)),
-            xaxis = list(title = "per 100,000 population") 
+            xaxis = list(title = "per 100,000 population",
+                         range=c(0,2000)) 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
 
-####__Figure 2. Latest COVID-19 specific mortaliaty rate by state__
+####__Figure 3. Cumulative COVID-19 specific mortaliaty rate by state__
 
-__Mortality rate__: number of COVID-19 deaths per 100,000 population. Considering different testing rates, this may be the most appropriate indicator to compare impact of the epidemic across states - with an assumption that states are similar in terms of their capacity to identify and report deaths due to COVID-19. 
+__Mortality rate__: number of COVID-19 deaths __per 100,000 population__. Considering different testing rates, this may be the most appropriate indicator to compare impact of the epidemic across states - with an assumption that states are similar in terms of their capacity to identify and report deaths due to COVID-19. 
 
 (As of `r date`)
 
@@ -355,9 +357,9 @@ plot_ly(dtafig, y=~state, x=~mortality, type = 'bar', orientation='h', marker=co
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
 
-####__Figure 3. Latest case fatality rate by state__
+####__Figure 4. Cumulative COVID-19 case fatality rate by state__
 
-And, for those who wonder about __Case fatality rate__ (CFR): number of deaths per 100 confirmed cases. CFR is sensitive to demographic and clinical characteristics of patients. CFR can be high in states where testing has been limited to only people with clinical symptoms. 
+And, for those who wonder about __Case fatality rate__ (CFR): total number of deaths __per 100 confirmed cases__. CFR is sensitive to demographic and clinical characteristics of patients, heavily affected by testing strategies. CFR can be high in states where testing has been limited to only people with clinical symptoms. 
 
 (As of `r date`)
 
@@ -383,9 +385,11 @@ plot_ly(dtafig, y=~state, x=~cfr, type = 'bar', orientation='h', marker=colorlis
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
 
-####__Figure 4. Timeline of the first wave by state__
+####__Figure 5. Timeline of the first wave by state__
 
-Note, the peak length is still to be determined in many states (with no yellow dot below). 
+Note, the peak length is still to be determined in many states (with no yellow dot below).  
+
+Also, start date of the stable phase below is the date when the new cases per population dropped below the cutoff for the first time. But, in all of the handful states that made that much progress, the number of new cases have fluctuated or increased recently.  
 
 ```{r plottimeline, results="asis", fig.align="left", out.width="800px", out.height="1000px"  }
 
@@ -413,7 +417,7 @@ layout(
 
 ```
 
-####__Figure 5. Height of the peak by state__
+####__Figure 6. Height of the peak by state__
 
 The following compares the height of the peak (the maximum number of new cases per 100,000 population) by state.      
 
@@ -434,7 +438,7 @@ plot_ly(dtafig, y=~state, x=~peakcasespp,
 
 ```
 
-####__Figure 6. Height of and time to the peak by state__
+####__Figure 7. Height of and time to the peak by state__
 
 And, if we put together the height of the peak (on a log scale, Y axis) and time to the peak (distance between the red and orange dots above)...       
 
