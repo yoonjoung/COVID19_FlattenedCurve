@@ -161,6 +161,7 @@ dtacurve<-dta%>%filter(incidence>1)
     length(unique(dta$state))    
 
 dtacurve<-dtacurve%>%
+    #filter(date<="2020-06-10")%>% #TO replicate results as of June 10th
     arrange(country, state, date)%>%
     group_by(state)%>%
     mutate(
@@ -279,11 +280,14 @@ __Daily incidence rate__: The most recent 7-day average of new confirmed cases p
 ```{r plotnew, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
 dtafig<-dtacurve%>%filter(is.na(latestcasespp)==FALSE)%>%filter(date==max(date))  
+    dim(dtafig)
+    table(dtafig$date)
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
                     [order(dtafig$latestcasespp, decreasing = FALSE)])
 
+maxx<-max(dtafig$latestcasespp)+5
 
 plot_ly(dtafig, y=~state, x=~latestcasespp, type = 'bar', orientation='h', marker=colorlist,
         text = ~latestcasespp, textposition = 'outside')%>%
@@ -294,7 +298,7 @@ plot_ly(dtafig, y=~state, x=~latestcasespp, type = 'bar', orientation='h', marke
                          showticklabels = TRUE, 
                          tickfont = list(size=10)),
             xaxis = list(title = "per 100,000 population", 
-                         range=c(0,18)) 
+                         range=c(0,maxx)) 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
@@ -323,7 +327,7 @@ plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=co
                          showticklabels = TRUE, 
                          tickfont = list(size=10)),
             xaxis = list(title = "per 100,000 population",
-                         range=c(0,2000)) 
+                         range=c(0,2200)) 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
