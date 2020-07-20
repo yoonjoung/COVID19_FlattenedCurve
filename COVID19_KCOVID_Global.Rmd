@@ -701,7 +701,7 @@ Again, the x-axis is days from the first day of phase 1. The y-axis is daily new
     
 ```
 
-```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="200px"}
+```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="400px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -737,7 +737,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%fil
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)    
+    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)    
 ```
 
 ```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="800px"}

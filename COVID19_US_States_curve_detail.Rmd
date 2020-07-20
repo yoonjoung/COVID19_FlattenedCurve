@@ -437,8 +437,9 @@ plot_ly(dtafig, y=~state, x=~peakcasespp,
         type = 'bar', orientation='h', marker=colorlist,
         text = ~peakcasespp, textposition = 'outside')%>%
     layout(
-    yaxis = list(title="Peak number of new cases per 100,000 population"),  
-    xaxis = list(title="",tickfont = list(size=10))  )
+        title="Highest number of daily new confirmed cases per 100,000 population",     
+        yaxis = list(title=""),  
+        xaxis = list(title="",tickfont = list(size=10))  )
 
 ```
 
