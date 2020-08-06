@@ -1,0 +1,445 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: true
+---
+```{r intro, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(echo=FALSE, 
+                      message=FALSE, 
+                      comment = "", 
+                      warning=FALSE, 
+                      results="hide") 
+knitr::opts_knit$set(root.dir = "C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_SOuthKorea/")
+
+date<-as.Date(Sys.time(	), format='%d%b%Y')
+time<-Sys.time()
+
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressMessages(library(plotly))
+suppressMessages(library(Matrix))
+suppressMessages(library(stringr))
+suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressWarnings(suppressMessages(library(lubridate)))
+suppressWarnings(suppressMessages(library(zoo)))
+```
+
+```{r dtaPop}
+#estimates:Total population, both sexes combined, as of 1 July (thousands)
+dtapop<-read_excel("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_SouthKorea/WPP2019/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx")
+
+dtapop<-dtapop%>%
+    rename(country = "Region, subregion, country or area *",
+           pop = "2020")%>%
+    filter(Type=="Country/Area")%>%
+    select(country, region, pop)%>%
+    mutate(pop=as.numeric(pop))
+
+```
+
+```{r dtaCOVID}
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+dtacases<-read.csv(url)%>%
+    rename(country = Country.Region,
+           region = Province.State)%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           cases = value)%>%
+    select(country, date, cases)%>%
+    mutate(country=as.character(country))%>%
+    group_by(country, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
+dtadeaths<-read.csv(url)%>%
+    rename(country = Country.Region,
+           region = Province.State)%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           deaths = value)%>%
+    select(country, date, deaths)%>%
+    mutate(country=as.character(country))%>%
+    group_by(country, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+str(dtacases)
+str(dtadeaths)
+
+dtacovid<-left_join(dtacases, dtadeaths, by = c("country", "date"))%>%
+    mutate(date=mdy(substring(date, 2)) )
+
+dim(dtacases)
+dim(dtadeaths)
+dim(dtacovid)
+
+#prep for join/merge
+dtacovid<-dtacovid%>%
+    mutate(
+        country=ifelse(country=="Bolivia","Bolivia (Plurinational State of)", country),
+        country=ifelse(country=="Brunei","Brunei Darussalam", country),
+        country=ifelse(country=="Burma","Myanmar", country),
+        country=ifelse(country=="Congo (Brazzaville)","Congo", country),
+        country=ifelse(country=="Congo (Kinshasa)","Democratic Republic of the Congo", country),
+        country=ifelse(country=="Cote d'Ivoire","Côte d'Ivoire", country),
+        country=ifelse(country=="Iran","Iran (Islamic Republic of)", country),
+        country=ifelse(country=="Korea, South","Republic of Korea", country),
+        country=ifelse(country=="Laos","Lao People's Democratic Republic", country),
+        country=ifelse(country=="Moldova","Republic of Moldova", country),
+        country=ifelse(country=="Russia","Russian Federation", country), 
+        country=ifelse(country=="Syria","Syrian Arab Republic", country),
+        country=ifelse(country=="Taiwan*","China, Taiwan Province of China", country),      
+        country=ifelse(country=="Tanzania","United Republic of Tanzania", country),   
+        country=ifelse(country=="US","United States of America", country),
+        country=ifelse(country=="Venezuela","Venezuela (Bolivarian Republic of)", country),     
+        country=ifelse(country=="Vietnam","Viet Nam", country),
+        country=ifelse(country=="West Bank and Gaza","State of Palestine", country)
+        )
+```
+
+```{r dta}
+str(dtacovid)
+str(dtapop)
+
+dta<-full_join(dtacovid, dtapop, by = "country")
+
+dim(dtacovid)
+dim(dtapop)
+dim(dta)
+
+
+temp<-dta%>%filter(is.na(pop)==TRUE) 
+#table(temp$country) #countries without pop
+
+temp<-dta%>%filter(is.na(cases)==TRUE)
+#table(temp$country) #countries without COVID data 
+
+dta<-dta%>%arrange(country, date)%>%
+    mutate(
+        newcases=cases-lag(cases),
+        newcases=ifelse(country!=lag(country), NA, newcases),
+        newcases=ifelse(newcases<0, 0, newcases), #fix negative new cases 
+
+        newdeaths=deaths-lag(deaths),
+        newdeaths=ifelse(country!=lag(country), NA, newdeaths),
+        newdeaths=ifelse(newdeaths<0, 0, newdeaths), #fix negative new deaths
+        
+        incidence=round(100000*cases/(pop*1000), 1), # confiremd cases per 100,000 pop
+        cfr=round(100*deaths/cases, 1), # deaths per 100 confirmed cases   
+        mortality=round(100000*deaths/(pop*1000), 3) # deaths per 100000 pop
+    )%>%arrange(country, date)%>%
+    mutate(
+        newcasessmooth =c(NA,NA,NA,rollmean(newcases, 7),NA,NA,NA), 
+        newdeathssmooth=c(NA,NA,NA,rollmean(newdeaths, 7),NA,NA,NA), 
+        newcasessmooth=ifelse(country!=lag(country), NA, newcasessmooth),
+        newdeathssmooth=ifelse(country!=lag(country), NA, newdeathssmooth),
+        newcasessmooth=round(newcasessmooth, 3),   
+        newdeathssmooth=round(newdeathssmooth, 3),
+                
+        newcasessmoothpp=round(100*newcasessmooth/pop, 3),   
+        newdeathssmoothpp=round(100*newdeathssmooth/pop, 3),
+        
+		country=ifelse(country=="Republic of Korea", "South Korea", country),
+		country=ifelse(country=="United States of America", "United States", country)
+		
+		)
+
+```
+
+```{r dtacurve}
+dtacurve<-dta%>%filter(region=="Eastern Africa" | region=="Western Africa" | 
+region== "Middle Africa" | region=="Southern Africa" | country=="South Korea"| country=="Switzerland")%>%
+    filter(incidence>0)
+    length(unique(dta$country))
+    length(unique(dtacurve$country))
+    
+#dtacurve<-dta%>%filter(incidence>1)
+
+dtacurve<-dtacurve%>%
+    arrange(country, date)%>%
+    group_by(country)%>%
+    mutate(
+        day = row_number(),
+        latest=date==max(date), 
+        latestincidence=max(incidence))%>%
+    ungroup()%>%
+    select(country, region, date, day, cases, deaths, pop, incidence, cfr, mortality, starts_with("new"), starts_with("latest") )
+
+```
+
+
+####__Flattening COVID-19 curve in sub-Saharan Africa (Working File Do Not Circulate)__  
+(Last updated on `r date`)
+
+__How does the COVID-19 curves look like in sub-Saharan African countries?__
+
+_Hover over each figure to see values and more options_.  
+
+_See data sources and methods at the end_.  
+
+Data: 48 sub-Saharan African countries + South Korea & Switzerland as comparison countries  
+
+####__1. Latest snapshot by country, as of `r date`__
+
+```{r}
+countrylist<-unique(dtacurve$country)
+length(countrylist)
+countrylist
+
+colorlist<- list(color = colorvector<-c(
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','orange',   'lightgray','lightgray',
+    'orange',   'lightgray','lightgray','orange',   'orange',
+    'orange',   'lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'orange','lightgray','orange',   'lightgray','lightgray',
+    'lightgray','lightgray','#1F77B4',  'lightgray','#1F77B4',
+    'lightgray','orange','orange','orange','orange'))
+```
+
+```{r plotincidence, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+
+dtafig<-dtacurve%>%filter(latest==TRUE)
+
+#write.csv(dtafig, "KCOVID/dtaKCOVIDsummary.csv")
+
+dtafig$country<-factor(dtafig$country, 
+                    levels = unique(dtafig$country) 
+                    [order(dtafig$incidence, decreasing = FALSE)])
+
+
+figincidence<-plot_ly(dtafig, y=~country, x=~incidence, 
+                      type = 'bar',orientation='h',
+              name= "country", marker=colorlist,
+              text = ~incidence, textposition = 'outside')%>%
+    layout(
+            title = c("COVID-19 confirmed cases per 100,000 population"),     
+            yaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "Incidence rate (per 100,000 population)") 
+            )
+
+figincidence
+```
+
+```{r plotmortality, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+
+
+dtafig$country<-factor(dtafig$country, 
+                    levels = unique(dtafig$country) 
+                    [order(dtafig$mortality, decreasing = FALSE)])
+
+figmortality<-plot_ly(dtafig, y=~country, x=~mortality, 
+                      type = 'bar',orientation='h',
+              name= "country", marker=colorlist,
+              text = ~mortality, textposition = 'outside')%>%
+    layout(
+            title = c("COVID-19 deaths per 100,000 population"),     
+            yaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "per 100,000 population") 
+            )
+
+figmortality
+```
+
+```{r plotcfr, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+
+dtafig$country<-factor(dtafig$country, 
+                    levels = unique(dtafig$country) 
+                    [order(dtafig$cfr, decreasing = FALSE)])
+
+figcfr<-plot_ly(dtafig, y=~country, x=~cfr, 
+                type = 'bar',orientation='h',
+              name= "country", marker=colorlist,
+              text = ~cfr, textposition = 'outside')%>%
+    layout(
+            title = c("COVID-19 deaths per 100 confirmed cases"),     
+            yaxis = list(title = "",  
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10)),
+            xaxis = list(title = "Case fatality rate (%)") 
+            )
+figcfr
+```
+
+####__2. Curve by country, grouped by the latest level of cumulative incidence rate__
+
+- Y-axis: The number of new cases per 100,000 population (7-day rolliing average).    
+- X-axis: Date.
+
+```{r}
+group4<-dtacurve%>%filter(latestincidence>=100)
+group4<-length(unique(group4$country)) 
+
+group3<-dtacurve%>%filter(latestincidence>=20 & latestincidence<100)
+group3<-length(unique(group3$country)) 
+
+group2<-dtacurve%>%filter(latestincidence>=5 & latestincidence<20)
+group2<-length(unique(group2$country)) 
+
+group1<-dtacurve%>%filter(latestincidence>=0 & latestincidence<5)
+group1<-length(unique(group1$country)) 
+```
+
+```{r plotcurveDAY}
+
+panel <- . %>% 
+  plot_ly(x = ~day, y = ~newcasessmoothpp) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(country),
+    x = 0.5, y = 0.9, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", 
+    showarrow = FALSE,
+    font = list(size = 10)
+  ) %>%
+  layout(
+    showlegend = FALSE,
+    title="", 
+    xaxis=list(range=c(0,maxx)), 
+    yaxis=list(range=c(0,maxy))
+  )
+
+```
+
+__Among `r group4` countries with cumulative incidence rate above 100 per 100,000 population__  
+
+```{r plotcurve4DAY, fig.align="left", out.width="800px", out.height="400px"}
+
+dtafig<-dtacurve%>%filter(latestincidence>100) 
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=2, shareX = TRUE, shareY = FALSE)    
+
+```
+
+```{r plotcurve}
+panel <- . %>% 
+  plot_ly(x = ~date, y = ~newcasessmoothpp) %>%
+  add_lines(line=list(color=("'#1F77B4'"))) %>%
+  add_annotations(
+    text = ~unique(country),
+    x = 0.5, y = 0.9, xref = "paper", yref = "paper",    
+    xanchor = "center", yanchor = "bottom", 
+    showarrow = FALSE,
+    font = list(size = 10)
+  ) %>%
+  layout(
+    showlegend = FALSE,
+    title="", 
+    yaxis=list(range=c(0,maxy))
+  )
+```
+
+```{r plotcurve4, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+
+dtafig<-dtacurve%>%filter(latestincidence>100) 
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=2, shareX = TRUE, shareY = FALSE)    
+```
+
+__Among `r group3` countries with cumulative incidence rate between 20-100 per 100,000 population__  
+
+```{r plotcurve3, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+
+dtafig<-dtacurve%>%filter(latestincidence>20 & latestincidence<100) 
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=4, shareX = TRUE, shareY = FALSE)    
+
+```
+
+__Among `r group2` countries with cumulative incidence rate between 5-20 per 100,000 population__  
+```{r plotcurve2, results="asis", fig.align="left", out.width="800px", out.height="1200px"}
+
+dtafig<-dtacurve%>%filter(latestincidence>=5 & latestincidence<20) 
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=6, shareX = TRUE, shareY = FALSE)    
+
+```
+
+__Among `r group1` countries with cumulative incidence rate below 5 per 100,000 population__  
+```{r plotcurve1, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+
+dtafig<-dtacurve%>%filter(latestincidence>=0 & latestincidence<5) 
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=3, shareX = TRUE, shareY = FALSE)    
+
+```
+
+__Among select four countries__  
+```{r plotSELECT4, results="asis", fig.align="left", out.width="800px", out.height="250px"}
+
+dtafig<-dtacurve%>%
+    filter(country=="Ghana"|country=="Liberia"|country=="Kenya"|country=="Malawi")
+
+maxx<-max(dtafig$day)
+maxy<-max(dtafig$newcasessmoothpp)+2
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows=1, shareX = TRUE, shareY = FALSE)    
+
+```
+
+
+---
+
+__METHODS__  
+
+__Data__  
+1. All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data). Accessed on `r date`.    
+2. All data on country population come from UN [World Population Prospects 2019 Revision](https://population.un.org/wpp/). Accessed on April 18, 2020.   
+
+__Measures__
+The number of new confirmed cases on each date was calculated based on the difference between cumulative numbers over two consecutive days. Then, a seven-day rolling average was calculated, hereinafter referred to as the _smoothed_ number of new confirmed cases. Then, the smoothed number was divided by the total population in the country: _the smoothed number of new confirmed cases per 100,000 population_.
+
+* The first wave was defined to start when the cumulative incidence rate exceeds one per 100,000 population. The smoothed number of new confirmed cases at the start of the first wave varies by country, but it averages around 0.5 per 100,000.  
+* The peak date of the wave was the date when the smoothed number of new confirmed cases per 100,000 population was at its height.  
+* The date entering the stable phase was when the smoothed number of new confirmed cases per 100,000 population was less than the number on the start date of the wave.
+
+COVID-mortality may be a more comparable indicator to understand the full extent of the epidemic, given considerably different testing strategies and testing rates. However, countries are currently at different stages of the curve, and comparison of mortality data would be possible once most countries are in a similar phase of the epidemic (i.e., well in the the stable phase).
+
+---
+
+<p style="color:gray">
+See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
+For typos, errors, and questions, contact me at [www.isquared.global]("https://www.iSquared.global/YJ")</p>
+
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.

@@ -543,7 +543,7 @@ _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES1, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+```{r plotSTATES1, results="asis", fig.align="left", out.width="800px", out.height="450px"}
 
 shapelist<-list(
                 type = "rect",  fillcolor = "#f03b20", 
@@ -582,7 +582,7 @@ dtacurve%>%filter(latestlevel>=0 & latestlevel<0.25)%>%
         level25=(peakcasespp-startcasespp)*0.25 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 2, shareX = TRUE, shareY = FALSE)  
 ```
 
 ####__2.2 States in late phase 2__
@@ -593,7 +593,7 @@ _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+```{r plotSTATES2, results="asis", fig.align="left", out.width="800px", out.height="450px"}
 
 panel <- . %>% 
   plot_ly(x = ~day)%>% 
@@ -624,7 +624,7 @@ dtacurve%>%filter(latestlevel>=0.25 & latestlevel<0.5)%>%
     mutate(level25=(peakcasespp-startcasespp)*0.25 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 2, shareX = TRUE, shareY = FALSE)  
 ```
 
 ####__2.3 States in early phase 2__
@@ -635,7 +635,7 @@ _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new
 
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES3, results="asis", fig.align="left", out.width="800px", out.height="250px"}
+```{r plotSTATES3, results="asis", fig.align="left", out.width="800px", out.height="650px"}
 
 panel <- . %>% 
   plot_ly(x = ~day)%>% 
@@ -666,7 +666,7 @@ dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
     mutate(level50=(peakcasespp-startcasespp)*0.5 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 3, shareX = TRUE, shareY = FALSE)  
 
 
 ```
@@ -674,7 +674,7 @@ dtacurve%>%filter(latestlevel>=0.5 & latestlevel<0.75)%>%
 ####__2.4 States in or still near phase 1__
 
 Unfortunately, __`r nnoway` states have not yet reached or are still close to their peaks__, with daily new cases either increasing, stalled, or down less than 25% from their peaks. Rather than relaxing their safeguards, they should instead be considering strengthening them.  
-
+ 
 * __Louisiana__ is the first among states with a high peak that made "near phase 3" in late April. At the peak, there were more than 30 daily new cases per 100,000 at one point, but the number of new cases has reduced fairly quickly and consistently. However, since late April, _the number of new cases has remained at the threshold level for a few weeks without further progress and recently has increased - now having surpassed the previous peak_.   
 
 
@@ -682,7 +682,7 @@ _Note: The x-axis is days from the first day of phase 1. The y-axis is daily new
  
 _Hover over the figures to see the underlying data_.
 
-```{r plotSTATES4, results="asis", fig.align="left", out.width="800px", out.height="1850px"}
+```{r plotSTATES4, results="asis", fig.align="left", out.width="800px", out.height="2000px"}
 
 panel <- . %>% 
   plot_ly(x = ~day)%>% 
@@ -712,7 +712,7 @@ dtacurve%>%filter(latestlevel>=0.75)%>%
     mutate(level75=(peakcasespp-startcasespp)*0.75 + startcasespp)%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 9, shareX = TRUE, shareY = FALSE)  
+    subplot(nrows = 10, shareX = TRUE, shareY = FALSE)  
 
 
 ```

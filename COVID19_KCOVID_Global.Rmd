@@ -575,7 +575,7 @@ plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia",
 
 ```
 
-```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -610,11 +610,9 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp<=startcasespp)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 5, shareX = TRUE, shareY = FALSE)    
+    subplot(nrows = 4, shareX = TRUE, shareY = FALSE)    
 
 ```
-
-
 
 #####__2.3 OECD countries not yet in the relative stable phase__
 
@@ -627,7 +625,7 @@ A few patterns emerge.
 * After the peak, new cases decrease immediately and consistently in some countries (e.g., Austria), while some countries have a wide peak (e.g., Belgium) or new cases decrease slowly (e.g., United States).  
 * Some have entered the first wave, and there is no clear sign of decrease (e.g., Mexico and Chile).
 
-```{r plotSKunlikeMedium, fig.align="left", out.width="800px", out.height="300px"}
+```{r plotSKunlikeMedium, fig.align="left", out.width="800px", out.height="100px"}
 #{r plotSKunlikeMedium, results='asis', fig.align="left", out.width="600px", out.height="300px"}
 
 panel <- . %>% 
@@ -737,7 +735,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%fil
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)    
+    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)        
 ```
 
 ```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="800px"}

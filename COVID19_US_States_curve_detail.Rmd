@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo=FALSE,
                       message=FALSE, 
                       comment = "", 
                       warning=FALSE, 
-                      results="hide") 
+                      results="hide")  
 
 date<-as.Date(Sys.time(	), format='%d%b%Y')
 time<-Sys.time()
