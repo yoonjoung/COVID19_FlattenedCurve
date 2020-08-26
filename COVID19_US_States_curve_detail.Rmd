@@ -275,13 +275,11 @@ colorlist<- list(color = c(
 
 __Daily incidence rate__: The most recent 7-day average of new confirmed cases per day per 100,000 population. 
 
-(As of `r date`)
-
 ```{r plotnew, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
 dtafig<-dtacurve%>%filter(is.na(latestcasespp)==FALSE)%>%filter(date==max(date))  
-    dim(dtafig)
-    table(dtafig$date)
+    #dim(dtafig)
+    #table(dtafig$date)
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
@@ -317,6 +315,7 @@ dtafig$state<-factor(dtafig$state,
                     levels = unique(dtafig$state) 
                     [order(dtafig$incidence, decreasing = FALSE)])
 
+maxx<-max(dtafig$incidence)+5
 
 plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=colorlist,
         text = ~incidence, textposition = 'outside')%>%
@@ -327,7 +326,7 @@ plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=co
                          showticklabels = TRUE, 
                          tickfont = list(size=10)),
             xaxis = list(title = "per 100,000 population",
-                         range=c(0,2200)) 
+                         range=c(0,maxx)) 
             )
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)

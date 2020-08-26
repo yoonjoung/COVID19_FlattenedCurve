@@ -279,6 +279,8 @@ temp<-dtacurve%>%filter(country=="South Korea")
 ####__The flattened COVID-19 curve in South Korea - and comparative perspectives among high-resource settings__  
 (Last updated on `r time`. A version as of April 26th was published at [Medium](https://medium.com/@yj.choi.isquared/flattening-covid-19-curve-in-south-korea-and-comparison-among-oecd-countries-singapore-and-taiwan-ae211a5645c9))
 
+__(Note: as of August 19th, 2020, the numnber of new cases (7-day rolling average) has surpassed the stable phase threshold in South Koare. So do several other countries that used to be in the stable phase.)__
+
 We have learned how South Korea has implemented a trace-test-isolate strategy - universally across the country and consistently from the outset of the epidemic. So, __how does the flattened curve in South Korea look like today, and how does it compare to other countries__?
 
 We will compare metrics of the epidemic curve in South Korea and other high-resource settings, specifically the Organisation for Economic Co-operation and Development (OECD) member countries. In addition, Taiwan and Singapore are included, considering their exemplary handling of the epidemic (at least until recently). Understanding different epidemic curves to date will help us not only address the current crisis but also prevent, delay, and flatten the next waves.
@@ -495,7 +497,7 @@ nlikeSK<-(length(unique(dtafig$country)) - 1)
 maxday<-max(dtafig$day)
 ```
 
-Among OECD members, `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. Except in Greece and now Japan as well, the peak height is taller - slightly or substantially (e.g., Iceland). And, the length of pre and post peak phases is longer. 
+Among OECD members, currently `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. 
 
 It is notable that several countries with a substantially high peak also have entered this phase.   
 
@@ -514,7 +516,7 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)%>%
                         tickfont = list(size=10))) 
 ```
 
-```{r plotSKlike, eval=FALSE, fig.align="left", out.width="800px"}
+```{r plotSKlike, eval=FALSE, fig.align="left", out.width="200px"}
 
 
 dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp<=startcasespp)%>%
@@ -575,7 +577,7 @@ plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia",
 
 ```
 
-```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="200px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -610,20 +612,13 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp<=startcasespp)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 4, shareX = TRUE, shareY = FALSE)    
+    subplot(nrows = 1, shareX = TRUE, shareY = FALSE)    
 
 ```
 
 #####__2.3 OECD countries not yet in the relative stable phase__
 
 Meanwhile, a majority of countries have not yet entered the relatively stable phase. Most of these countries have a substantially higher peak, compared to the above countries.
-
-A few patterns emerge.
-
-* Some would reach the stable phase soon if the current pace continues (e.g., Germany).  
-* Some have had rebounds. See Finland and Spain.  
-* After the peak, new cases decrease immediately and consistently in some countries (e.g., Austria), while some countries have a wide peak (e.g., Belgium) or new cases decrease slowly (e.g., United States).  
-* Some have entered the first wave, and there is no clear sign of decrease (e.g., Mexico and Chile).
 
 ```{r plotSKunlikeMedium, fig.align="left", out.width="800px", out.height="100px"}
 #{r plotSKunlikeMedium, results='asis', fig.align="left", out.width="600px", out.height="300px"}
@@ -695,11 +690,13 @@ Again, the x-axis is days from the first day of phase 1. The y-axis is daily new
     length(table(dtafig1$country))
     dtafig2<-dtafig%>%filter(peakcasespp>=4 & peakcasespp<13)
     length(table(dtafig2$country))
+    
+    maxday
 
     
 ```
 
-```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -730,12 +727,13 @@ panel <- . %>%
 
 dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%filter(peakcasespp<4)
 
+maxday<-max(dtafig$day)
 #write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike1.csv")
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)        
+    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)        
 ```
 
 ```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="800px"}
@@ -771,13 +769,15 @@ dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%fil
 
 #write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike2.csv")
 
+maxday<-max(dtafig$day)
+
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
     subplot(nrows = 5, shareX = TRUE, shareY = TRUE)  
 ```
 
-```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -802,17 +802,18 @@ panel <- . %>%
     showlegend = FALSE,
     title = c(""),
     xaxis=list(range=c(0, maxday), title=""), 
-    yaxis=list(title="") 
+    yaxis=list(title=c(0, 30),"") 
   )
 
 dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%filter(peakcasespp>=13)
 
 #write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike3.csv")
+maxday<-max(dtafig$day)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)
+    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)
 ```
 
 * __In Spain, the number of new cases indeed had come down to the start level after 52 days, but then it quickly rebounded above the threshold (dotted gray line)__. Spain's example emphasizes that, even among these countries, it is important to keep the number of new infections low without any rebound.
