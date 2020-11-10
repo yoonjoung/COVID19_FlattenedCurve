@@ -42,7 +42,6 @@ str(dtapop)
 length(unique(dtapop$state))
 ```
 
-
 ```{r dtaCOVID}
 url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv"
 
@@ -120,8 +119,8 @@ dta<-dta%>%filter(is.na(pop)==FALSE)%>%
         mortality=round(100000*deaths/pop, 1) # deaths per 100000 pop
     )%>%arrange(state, date)%>%
     mutate(
-        newcasessmooth =c(NA,NA,NA,rollmean(newcases, 7),NA,NA,NA), 
-        newdeathssmooth=c(NA,NA,NA,rollmean(newdeaths, 7),NA,NA,NA), 
+        newcasessmooth =c(NA,NA,NA,NA,NA,NA,rollmean(newcases, 7)), 
+        newdeathssmooth=c(NA,NA,NA,NA,NA,NA,rollmean(newdeaths, 7)), 
         newcasessmooth=ifelse(state!=lag(state), NA, newcasessmooth),
         newdeathssmooth=ifelse(state!=lag(state), NA, newdeathssmooth),
 
@@ -166,7 +165,7 @@ dtacurve<-dtacurve%>%
     group_by(state)%>%
     mutate(
         day = row_number(),
-        latest=date==max(date)-3, 
+        latest=date==max(date), 
         
         startdate=min(date),
         startcases=newcasessmooth,
@@ -206,7 +205,7 @@ dtacurve<-dtacurve%>%
 ```
 
 
-####__Supplementary figures for "[Is my state ready to reopen? Seeing is believing](https://medium.com/@yj.choi.isquared/is-my-state-ready-to-reopen-seeing-is-believing-41ef39de663a)"__  
+####__Supplementary figures for "[COVID-19 waves in the US: How is my state doing? Seeing is believing.](https://rpubs.com/YJ_Choi/COVID19_US_states_curve)"__  
 
 (Last updated on `r time`)
 
@@ -309,7 +308,7 @@ __Cumulative incidence rate__: number of confirmed cases __per 100,000 populatio
     
 ```{r plotincidence, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
-dtafig<-dtacurve%>%filter(latest==TRUE)    
+dtafig<-dtacurve%>%filter(latest==TRUE)%>%mutate(incidence=round(incidence,0))    
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 
@@ -339,7 +338,7 @@ __Mortality rate__: number of COVID-19 deaths __per 100,000 population__. Consid
 
 ```{r plotmortality, results="asis", fig.align="left", out.width="600px", out.height="800px"}
 
-dtafig<-dtacurve%>%filter(latest==TRUE)     
+dtafig<-dtacurve%>%filter(latest==TRUE)%>%mutate(mortality=round(mortality,0))        
 
 dtafig$state<-factor(dtafig$state, 
                     levels = unique(dtafig$state) 

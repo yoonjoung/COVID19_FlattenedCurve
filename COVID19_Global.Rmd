@@ -1,0 +1,328 @@
+---
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float: true
+---
+```{r intro, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(echo=FALSE, 
+                      message=FALSE, 
+                      comment = "", 
+                      warning=FALSE, 
+                      results="hide") 
+knitr::opts_knit$set(root.dir = "C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_Global/")
+
+date<-as.Date(Sys.time(	), format='%d%b%Y')
+time<-Sys.time()
+
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(tidyverse)))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressMessages(library(plotly))
+suppressMessages(library(Matrix))
+suppressMessages(library(stringr))
+suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(readxl)))
+suppressWarnings(suppressMessages(library(lubridate)))
+suppressWarnings(suppressMessages(library(zoo)))
+```
+
+```{r dtaPop}
+#estimates:Total population, both sexes combined, as of 1 July (thousands)
+dtapop<-read_excel("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_SouthKorea/WPP2019/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx")
+
+dtapop<-dtapop%>%
+    rename(country = "Region, subregion, country or area *",
+           pop = "2020")%>%
+    filter(Type=="Country/Area")%>%
+    select(country, pop, region)%>%
+    mutate(pop=as.numeric(pop))
+
+```
+
+```{r dtaCOVID}
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+dtacases<-read.csv(url)%>%
+    rename(country = Country.Region,
+           region = Province.State)%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           cases = value)%>%
+    select(country, date, cases)%>%
+    mutate(country=as.character(country))%>%
+    group_by(country, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+url<-"https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv"
+dtadeaths<-read.csv(url)%>%
+    rename(country = Country.Region,
+           region = Province.State)%>%
+    gather(variable, value, starts_with("X"))%>%
+    rename(date = variable,
+           deaths = value)%>%
+    select(country, date, deaths)%>%
+    mutate(country=as.character(country))%>%
+    group_by(country, date)%>%
+    summarize_all(funs(sum))%>%ungroup()
+
+str(dtacases)
+str(dtadeaths)
+
+dtacovid<-left_join(dtacases, dtadeaths, by = c("country", "date"))%>%
+    mutate(date=mdy(substring(date, 2)) )
+
+dim(dtacases)
+dim(dtadeaths)
+dim(dtacovid)
+
+#prep for join/merge
+dtacovid<-dtacovid%>%
+    mutate(
+        country=ifelse(country=="Bolivia","Bolivia (Plurinational State of)", country),
+        country=ifelse(country=="Brunei","Brunei Darussalam", country),
+        country=ifelse(country=="Burma","Myanmar", country),
+        country=ifelse(country=="Congo (Brazzaville)","Congo", country),
+        country=ifelse(country=="Congo (Kinshasa)","Democratic Republic of the Congo", country),
+        country=ifelse(country=="Cote d'Ivoire","Côte d'Ivoire", country),
+        country=ifelse(country=="Iran","Iran (Islamic Republic of)", country),
+        country=ifelse(country=="Korea, South","Republic of Korea", country),
+        country=ifelse(country=="Laos","Lao People's Democratic Republic", country),
+        country=ifelse(country=="Moldova","Republic of Moldova", country),
+        country=ifelse(country=="Russia","Russian Federation", country), 
+        country=ifelse(country=="Syria","Syrian Arab Republic", country),
+        country=ifelse(country=="Taiwan*","China, Taiwan Province of China", country),      
+        country=ifelse(country=="Tanzania","United Republic of Tanzania", country),   
+        country=ifelse(country=="US","United States of America", country),
+        country=ifelse(country=="Venezuela","Venezuela (Bolivarian Republic of)", country),     
+        country=ifelse(country=="Vietnam","Viet Nam", country),
+        country=ifelse(country=="West Bank and Gaza","State of Palestine", country)
+        )
+```
+
+```{r dta}
+str(dtacovid)
+str(dtapop)
+
+dta<-full_join(dtacovid, dtapop, by = "country")
+
+dim(dtacovid)
+dim(dtapop)
+dim(dta)
+
+temp<-dta%>%filter(is.na(pop)==TRUE) 
+table(temp$country) #countries without pop
+
+temp<-dta%>%filter(is.na(cases)==TRUE)
+table(temp$country) #countries without COVID data 
+
+dta<-dta%>%
+    arrange(country, date)%>%
+    filter(is.na(cases)==FALSE & is.na(cases)==FALSE)%>% #countries with POP & COVID data 
+    mutate(
+        newcases=cases-lag(cases),
+        newcases=ifelse(country!=lag(country), NA, newcases),
+
+        newdeaths=deaths-lag(deaths),
+        newdeaths=ifelse(country!=lag(country), NA, newdeaths),
+        
+        incidence=round(100000*cases/(pop*1000), 1), # confiremd cases per 100,000 pop
+        cfr=round(100*deaths/cases, 1), # deaths per 100 confirmed cases   
+        mortality=round(100000*deaths/(pop*1000), 1) # deaths per 100000 pop
+    )%>%
+    arrange(country, date)%>%
+    mutate(
+        newcasessmooth =c(NA,NA,NA,NA,NA,NA,rollmean(newcases, 7)), 
+        newdeathssmooth=c(NA,NA,NA,NA,NA,NA,rollmean(newdeaths, 7)), 
+        newcasessmooth=ifelse(country !=lag(country ), NA, newcasessmooth),
+        newdeathssmooth=ifelse(country !=lag(country ), NA, newdeathssmooth),
+        newcasessmooth =round(newcasessmooth, 3),  
+        newdeathssmooth=round(newdeathssmooth, 3),
+
+        newcasessmoothpp=round(100*newcasessmooth/pop, 1),   
+        newdeathssmoothpp=round(100*newdeathssmooth/pop, 1)
+    )
+
+#data quality problem: cumulative deaths and acses going down in some cases 
+    
+    summary(dta$newcases)
+    summary(dta$newdeaths)
+    temp<-dta%>%filter(newcases<0 | newdeaths<0)
+    dim(temp)
+    head(temp, nrow(temp))
+    
+    temp<-dta%>%filter(newcasessmooth<0 | newdeathssmooth<0)
+    dim(temp)
+    head(temp, nrow(temp))    
+
+#Force negative smooth numbers to 0 
+
+dta<-dta%>%
+    mutate(
+        newcasessmooth   =ifelse(newcasessmooth<0,    0, newcasessmooth),
+        newcasessmoothpp =ifelse(newcasessmoothpp<0,  0, newcasessmoothpp),
+        newdeathssmooth  =ifelse(newdeathssmooth<0,   0, newdeathssmooth),
+        newdeathssmoothpp=ifelse(newdeathssmoothpp<0, 0, newdeathssmoothpp)
+    )
+
+```
+
+```{r dtacurve}
+dtacurve<-dta%>%
+    filter(date>="2020-03-01")%>%#only since March
+    arrange(country, date)%>%
+    group_by(country)%>%
+    mutate(
+        latest=date==max(date)-3, 
+        latestcasespp=newcasessmoothpp, 
+        latestcasespp=ifelse(latest==FALSE, NA, latestcasespp)
+        )%>%
+    fill(latestcasespp)%>%
+    fill(latestcasespp, .direction = "up")%>%    
+    mutate(
+        peakcasespp=round(max(newcasessmoothpp, na.rm = TRUE), 1), 
+        peakdate=as.character(date),
+            peakdate=ifelse(peakcasespp!=newcasessmoothpp, "", peakdate),
+            peakdate=ymd(substring(peakdate, 1)) )%>%
+    ungroup()%>%
+    select(country, region, date, latest, cases, deaths, pop, incidence, cfr, mortality,
+           starts_with("new"), starts_with("latest"), starts_with("peak")             )
+
+dim(dta)
+dim(dtacurve)
+length(unique(dta$country))
+length(unique(dtacurve$country))
+
+write.csv(dtacurve, "dtacurve_global.csv")
+```
+
+####__COVID-19 curves by country__  
+(Last updated on `r time`) 
+
+```{r}
+ntotalcountries<-(length(unique(dtacurve$country)))
+ntotal<-nrow(dtacurve)
+```
+
+####__1. Note on data__
+
+__Source Data__  
+1. All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data). Accessed on `r date`.    
+2. All data on country population come from UN [World Population Prospects 2019 Revision](https://population.un.org/wpp/). Accessed on April 18, 2020.   
+
+See note in each source data site about methods and comparability over time and across countries.    
+
+---
+
+__"COVID-19 status data" for dashboard: dtacurve_global.csv__    
+* Includes `r ntotalcountries` countries with both COVID-19 and population data.     
+* A total of `r ntotal` country-day-specific observations/rows included, as of `r date`.     
+* Variables/Columns:   
+ [1] "country"          
+ [2] "region" region classification from UN Pop Division           
+ [3] "date"             
+ [4] "latest" latest date reported for the country                    
+ [5] "cases" cumulative number of reported cases                         
+ [6] "deaths" cumulative number of reported deaths  
+ [7] "pop" population in million                 
+ [8] "incidence" reported cases per 100,000 pop          
+ [9] "cfr" deaths per 100 reported cases             
+[10] "mortality" deaths per per 100,000 pop        
+[11] "newcases"         
+[12] "newdeaths"        
+[13] "newcasessmooth"   
+[14] "newdeathssmooth"  
+[15] "newcasessmoothpp" 7-day rolling average of daily new reported cases per 100,000 pop  
+[16] "newdeathssmoothpp"   
+[17] "latestcasespp" latest 7-day rolling average of daily new reported cases per 100,000 pop        
+[18] "peakcasespp" highest daily new reported cases per 100,000 pop for the country (based on 7-day rolling average)          
+[19] "peakdate"  
+
+####__2. COVID-19 curve examples in select regions__
+
+```{r plotpanel}
+mindate<-min(dtacurve$date)
+maxdate<-max(dtacurve$date)
+
+panel <- . %>% 
+    plot_ly(x = ~date)%>% 
+    add_trace(
+        y = 0, type = 'scatter', mode = 'lines',
+        line= list(color = "#F1F1F1") ) %>%    
+    add_trace(
+        y = 10, type = 'scatter', mode = 'lines',
+        fill = 'tonexty',fillcolor='#EEEEEE', opacity=0.1,
+        line= list(color = "#F1F1F1") ) %>%    
+    add_lines(y = ~newcasessmoothpp,
+        line= list(color = "#073763"),  
+        hoverinfo = 'text',
+        text = ~paste(
+                      '</br> Country: ', country,          
+                      '</br> Date: ', date,
+                      '</br> New cases per 100,000: ', newcasessmoothpp)  )%>%
+    add_annotations(
+        text = ~unique(country),
+        x = 0.5, y = 0.90, xref = "paper", yref = "paper",    
+        xanchor = "center", yanchor = "bottom", showarrow = FALSE,
+        font = list(size = 12)  )%>%
+    layout(
+        showlegend = FALSE,
+        yaxis=list(title="New cases per 100,000" , 
+                   range=c(0,maxy), showgrid = FALSE),
+        xaxis=list(title="" , range=c(mindate,maxdate), showgrid = FALSE)
+        ) 
+
+```
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+
+Countries in South America 
+```{r plot1, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+
+dtafig<-dtacurve%>%filter(region=="South America")
+
+maxy<-max(dtafig$newcasessmoothpp)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+```
+
+---
+
+Illustrative results for countries in Eastern Africa 
+```{r plot2, results="asis", fig.align="left", out.width="800px", out.height="1000px"}
+
+dtafig<-dtacurve%>%filter(region=="Eastern Africa")
+
+maxy<-max(dtafig$newcasessmoothpp)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 5, shareX = TRUE, shareY = TRUE)  
+```
+
+---
+
+Illustrative results for countries in Central Asia
+```{r plot3, results="asis", fig.align="left", out.width="800px", out.height="200px"}
+
+dtafig<-dtacurve%>%filter(region=="Central Asia")
+
+maxy<-max(dtafig$newcasessmoothpp)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
+```
+
+---
+
+<p style="color:gray">
+See [GitHub](https://github.com/yoonjoung/COVID19_FlattenedCurve) for data, code, and more information. 
+For typos, errors, and questions, contact me at [www.isquared.global](https://www.iSquared.global/YJ). 
+
+_Making Data Delicious, One Byte at a Time_, in good times and bad times.</p>

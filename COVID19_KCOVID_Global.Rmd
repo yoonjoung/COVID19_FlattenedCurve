@@ -425,7 +425,9 @@ daysstable<-max(temp$date)- max(temp$enddate, na.rm = TRUE)
 
 The data clearly show the three phases in South Korea. The cumulative incidence rate (gray bars, left axis) exceeded 1 per 100,000 population on `r startdate`, and the daily new cases (black line, right axis) increased steeply, reaching the peak of `r peakcasespp` new confirmed cases per 100,000 population on `r peakdate`. Then, new cases started to drop consistently, entering to the second phase (orange shade). Note that the cumulative incidence still increases substantially during the second phase. For over a month, the country has been well into the relatively stable phase (yellow shade) since `r enddate`. Cumulative incidence has increased at a much lower rate recently.
 
-```{r plotSKrate, results="asis", fig.align="left", out.width="800px"}
+However, there was a second peak (though relatively small) in late August. 
+
+```{r plotSKrate_original, fig.align="left", out.width="800px"}
 
 dtafig<-dtacurve%>%filter(country=="South Korea") 
 
@@ -480,7 +482,7 @@ plot_ly(dtafig, x=~date,
                      range=c(0,1.5), 
                      overlaying='y2', side="left", showgrid = FALSE ),
         yaxis2 = list(title = "Total cases per 100,000 population", 
-                     range=c(0,22), 
+                     range=c(0,50), 
                      side="right", showgrid = FALSE),
         margin = list(b = 100, r=100), 
         legend=list(orientation="h", xanchor = "center", yanchor = "center", 
@@ -488,6 +490,75 @@ plot_ly(dtafig, x=~date,
         )
 
 ```
+
+```{r plotSKrate, results="asis", fig.align="left", out.width="800px"}
+
+dtafig<-dtacurve%>%filter(country=="South Korea") 
+
+#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKorea.csv")
+
+shapelist<-list(
+            list(
+                type = "rect",  fillcolor = "#f03b20", 
+                line = list(color = "#f03b20"), opacity = 0.2,
+                x0=min(dtafig$date), 
+                x1=max(dtafig$peakdate, na.rm = TRUE),xref = "x",
+                y0=0,y1=300, yref = "y2") , 
+            list(
+                type = "rect",  fillcolor = "#fd8d3c", 
+                line = list(color = "#fd8d3c"), opacity = 0.2,
+                x0=max(dtafig$peakdate, na.rm = TRUE),
+                x1=as.character("2020-03-11"),xref = "x",
+                y0=0,y1=300, yref = "y2" ),
+            list(
+                type = "rect",  fillcolor = "#fed976", 
+                line = list(color = "#fed976"), opacity = 0.2,
+                x0=as.character("2020-03-11"), 
+                x1=max(dtafig$date),xref = "x",
+                y0=0,y1=300, yref = "y2" )
+            )
+
+
+plot_ly(dtafig, x=~date, 
+        y=~newcasessmoothpp, name="New cases",
+        type='scatter',mode = 'lines', 
+        marker=list(color = c( "black"), size = 1),
+        line=list(color = c( "black"))
+        ) %>%
+    add_trace(
+        y=~incidence, name="Total cases", 
+        type='bar', 
+        marker=list(color = c( "lightgray"), size = 1),
+        line=list(color = c( "lightgray")),
+        #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
+        yaxis='y2'
+        )%>%
+    add_segments(x = min(dtafig$date), xend = max(dtafig$date), 
+                 y = 0.343, yend = 0.343, yaxis='y', 
+                 marker = list(color = "black", size = 2.2),
+                 line= list(color = "black", dash = 'dot'),
+                 showlegend=FALSE)%>%    
+    add_annotations(x = as.Date("2020-04-05"), y = 0.4, yaxis='y',
+                    text="New cases at the start level",
+                    showarrow = FALSE, 
+                    font = list(color = "black", size = 15))%>%    
+    layout(
+        shapes=shapelist, 
+        title = c("Trend of new and total cases per 100,000 population during the first wave"),
+        xaxis = list(title = "", tickfont = list(size=10), showgrid = FALSE), 
+        yaxis = list(title = "Daily new cases per 100,000 population", 
+                     range=c(0,1.5), 
+                     overlaying='y2', side="left", showgrid = FALSE ),
+        yaxis2 = list(title = "Total cases per 100,000 population", 
+                     range=c(0,50), 
+                     side="right", showgrid = FALSE),
+        margin = list(b = 100, r=100), 
+        legend=list(orientation="h", xanchor = "center", yanchor = "center", 
+                    x = 0.5, y = -0.1)
+        )
+
+```
+
 
 #####__2.2 OECD countries also in the relative stable phase__
 ```{r}
@@ -696,7 +767,7 @@ Again, the x-axis is days from the first day of phase 1. The y-axis is daily new
     
 ```
 
-```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+```{r plotSKunlike1, results="asis", fig.align="left", out.width="300px", out.height="200px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -733,10 +804,10 @@ maxday<-max(dtafig$day)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)        
+    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)        
 ```
 
-```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="800px"}
+```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="400px"}
 
 
 panel <- . %>% 
@@ -774,10 +845,10 @@ maxday<-max(dtafig$day)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 5, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)  
 ```
 
-```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="1200px"}
 
 panel <- . %>% 
   plot_ly(x = ~day, y = ~newcasessmoothpp,
@@ -813,7 +884,7 @@ maxday<-max(dtafig$day)
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)
+    subplot(nrows = 6, shareX = TRUE, shareY = TRUE)
 ```
 
 * __In Spain, the number of new cases indeed had come down to the start level after 52 days, but then it quickly rebounded above the threshold (dotted gray line)__. Spain's example emphasizes that, even among these countries, it is important to keep the number of new infections low without any rebound.
