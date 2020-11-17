@@ -197,15 +197,17 @@ length(unique(dtacurve$country))
 write.csv(dtacurve, "dtacurve_global.csv")
 ```
 
-####__COVID-19 curves by country__  
+###__COVID-19 curves by country__  
 (Last updated on `r time`) 
 
 ```{r}
 ntotalcountries<-(length(unique(dtacurve$country)))
 ntotal<-nrow(dtacurve)
+#colnames(dtacurve)
+#table(dtacurve$region)
 ```
 
-####__1. Note on data__
+###__1. Note on data__
 
 __Source Data__  
 1. All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data). Accessed on `r date`.    
@@ -239,7 +241,7 @@ __"COVID-19 status data" for dashboard: dtacurve_global.csv__
 [18] "peakcasespp" highest daily new reported cases per 100,000 pop for the country (based on 7-day rolling average)          
 [19] "peakdate"  
 
-####__2. COVID-19 curve examples in select regions__
+###__2. COVID-19 curve by country in select regions__
 
 ```{r plotpanel}
 mindate<-min(dtacurve$date)
@@ -276,47 +278,98 @@ panel <- . %>%
 ```
 _Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
-Countries in South America 
-```{r plot1, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+####__America__
+
+#####Central America 
+```{r plot_CentralAmerica, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+
+dtafig<-dtacurve%>%filter(region=="Central America")
+
+maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
+```
+
+#####South America 
+```{r plot_SouthAmerica, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
 dtafig<-dtacurve%>%filter(region=="South America")
 
 maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-Illustrative results for countries in Eastern Africa 
-```{r plot2, results="asis", fig.align="left", out.width="800px", out.height="1000px"}
+####__Africa__
+
+#####Eastern Africa 
+```{r plot_EasternAfrica, results="asis", fig.align="left", out.width="800px", out.height="1000px"}
 
 dtafig<-dtacurve%>%filter(region=="Eastern Africa")
 
 maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 5, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
+```
+
+#####Southern Africa 
+```{r plot_SouthernAfrica, results="asis", fig.align="left", out.width="600px", out.height="400px"}
+
+dtafig<-dtacurve%>%filter(region=="Southern Africa")
+
+maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-Illustrative results for countries in Central Asia
-```{r plot3, results="asis", fig.align="left", out.width="800px", out.height="200px"}
+####__Asia__
+
+#####Central Asia
+```{r plot_CentralAsia, results="asis", fig.align="left", out.width="800px", out.height="200px"}
 
 dtafig<-dtacurve%>%filter(region=="Central Asia")
 
 maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
+```
+
+#####Central Asia
+```{r plot_SouthEasternAsia, results="asis", fig.align="left", out.width="800px", out.height="600px"}
+
+dtafig<-dtacurve%>%filter(region=="South-Eastern Asia")
+
+maxy<-max(dtafig$newcasessmoothpp)
+nobs<-ceiling(length(unique(dtafig$country))/4)
+
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
