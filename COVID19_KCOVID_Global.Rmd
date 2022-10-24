@@ -11,19 +11,19 @@ knitr::opts_chunk$set(echo=FALSE,
                       comment = "", 
                       warning=FALSE, 
                       results="hide") 
-knitr::opts_knit$set(root.dir = "C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_SOuthKorea/")
+knitr::opts_knit$set(root.dir = "~/Dropbox/0 Project/COVID19_SOuthKorea/")
 
 date<-as.Date(Sys.time(	), format='%d%b%Y')
 time<-Sys.time()
 
-suppressMessages(library(dplyr))
-suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(dplyr)))
+suppressWarnings(suppressMessages(library(ggplot2)))
 suppressWarnings(suppressMessages(library(tidyverse)))
 suppressWarnings(suppressMessages(library(readxl)))
-suppressMessages(library(plotly))
-suppressMessages(library(Matrix))
-suppressMessages(library(stringr))
-suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(plotly)))
+suppressWarnings(suppressMessages(library(Matrix)))
+suppressWarnings(suppressMessages(library(stringr)))
+suppressWarnings(suppressMessages(library(stringi)))
 suppressWarnings(suppressMessages(library(readxl)))
 suppressWarnings(suppressMessages(library(lubridate)))
 suppressWarnings(suppressMessages(library(zoo)))
@@ -31,7 +31,7 @@ suppressWarnings(suppressMessages(library(zoo)))
 
 ```{r dtaPop}
 #estimates:Total population, both sexes combined, as of 1 July (thousands)
-dtapop<-read_excel("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_SouthKorea/WPP2019/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx")
+dtapop<-read_excel("~/Dropbox/0 Project/COVID19_SouthKorea/WPP2019/WPP2019_POP_F01_1_TOTAL_POPULATION_BOTH_SEXES.xlsx")
 
 dtapop<-dtapop%>%
     rename(country = "Region, subregion, country or area *",
@@ -85,7 +85,7 @@ dtacovid<-dtacovid%>%
         country=ifelse(country=="Burma","Myanmar", country),
         country=ifelse(country=="Congo (Brazzaville)","Congo", country),
         country=ifelse(country=="Congo (Kinshasa)","Democratic Republic of the Congo", country),
-        country=ifelse(country=="Cote d'Ivoire","Côte d'Ivoire", country),
+        country=ifelse(country=="Cote d'Ivoire","C?te d'Ivoire", country),
         country=ifelse(country=="Iran","Iran (Islamic Republic of)", country),
         country=ifelse(country=="Korea, South","Republic of Korea", country),
         country=ifelse(country=="Laos","Lao People's Democratic Republic", country),
@@ -126,13 +126,13 @@ dta<-dta%>%arrange(country, date)%>%
         newdeaths=deaths-lag(deaths),
         newdeaths=ifelse(country!=lag(country), NA, newdeaths),
         
-        incidence=round(100000*cases/(pop*1000), 1), # confiremd cases per 100,000 pop
+        incidence=round(100000*cases/(pop*1000), 1), # confirmed cases per 100,000 pop
         cfr=round(100*deaths/cases, 1), # deaths per 100 confirmed cases   
         mortality=round(100000*deaths/(pop*1000), 1) # deaths per 100000 pop
     )%>%arrange(country, date)%>%
     mutate(
-        newcasessmooth =c(NA,NA,NA,rollmean(newcases, 7),NA,NA,NA), 
-        newdeathssmooth=c(NA,NA,NA,rollmean(newdeaths, 7),NA,NA,NA), 
+        newcasessmooth =c(NA,NA,NA,NA,NA,NA,rollmean(newcases, 7)), 
+        newdeathssmooth=c(NA,NA,NA,NA,NA,NA,rollmean(newdeaths, 7)), 
         newcasessmooth=ifelse(country!=lag(country), NA, newcasessmooth),
         newdeathssmooth=ifelse(country!=lag(country), NA, newdeathssmooth),
         newcasessmooth =round(newcasessmooth, 3),  
@@ -188,7 +188,7 @@ temp<-dta%>%filter(oecd==TRUE)
 #table(temp$country) # OECD countries 
 length(unique(temp$country))
 
-#data quality problem: cumulative deaths and acses going down in some cases 
+#data quality problem: cumulative deaths and cases going down in some cases 
     
     summary(dta$newcases)
     summary(dta$newdeaths)
@@ -212,21 +212,24 @@ dta<-dta%>%
 
 ```
 
+
 ```{r}
 temp<-dta%>%filter(country!="China")%>%
-    group_by(date)%>% mutate(topcases=max(cases), top=cases==topcases)%>% ungroup()%>%
-    filter(top==TRUE)%>%select(date, cases, country)%>%
+    group_by(date)%>% 
+    mutate(
+        topcases=max(cases), 
+        top=cases==topcases)%>% 
+    ungroup()%>%
+    filter(top==TRUE)%>%
+    select(date, cases, country)%>%
     filter(country=="South Korea")
     
-head(temp, 20)
 ```    
 
 ```{r dtacurve}
-dtacurve<-dta%>%filter(oecd==TRUE | country=="Taiwan" | country=="Singapore")
+dtacurve<-dta%>%filter(oecd==TRUE)%>%filter(date>="2020-02-01")
+    
     length(unique(dta$country))
-    length(unique(dtacurve$country))
-
-dtacurve<-dta%>%filter(incidence>1)
     length(unique(dtacurve$country))
 
 dtacurve<-dtacurve%>%
@@ -234,7 +237,13 @@ dtacurve<-dtacurve%>%
     group_by(country)%>%
     mutate(
         day = row_number(),
-        latest=date==max(date)-3, 
+        maxday = max(day),
+        latestmonth= maxday-day<=30, 
+        newcasessmoothpplatestmonth = newcasessmoothpp,
+        newcasessmoothpplatestmonth = ifelse(latestmonth!=1, NA,
+                                             newcasessmoothpplatestmonth), 
+                
+        latest=date==max(date), 
         
         startdate=min(date),
         startcases=newcasessmooth,
@@ -272,98 +281,155 @@ dtacurve<-dtacurve%>%
     ungroup()%>%
     select(country, oecd, date, day, latest, cases, deaths, pop,  incidence, cfr, mortality, starts_with("new"), starts_with("start"), starts_with("peak"), starts_with("end"), starts_with("latest"), -endcases)
 
-temp<-dtacurve%>%filter(country=="South Korea")
+dtacurve<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 1),
+           incidence=round(incidence, 0),
+           mortality=round(mortality, 0))
 ```
 
 
-####__The flattened COVID-19 curve in South Korea - and comparative perspectives among high-resource settings__  
-(Last updated on `r time`. A version as of April 26th was published at [Medium](https://medium.com/@yj.choi.isquared/flattening-covid-19-curve-in-south-korea-and-comparison-among-oecd-countries-singapore-and-taiwan-ae211a5645c9))
+#### __COVID-19 waves: comparative perspectives among high-resource settings__  
 
-__(Note: as of August 19th, 2020, the numnber of new cases (7-day rolling average) has surpassed the stable phase threshold in South Koare. So do several other countries that used to be in the stable phase.)__
+<div class="alert alert-info">
+__NOTE__   
+Since July 2, 2022, select data from this site have been presented in __[an interactive app](https://isquared.shinyapps.io/COVID19_OECD)__. This site is not maintained regularly anymore.
+</div>
 
-We have learned how South Korea has implemented a trace-test-isolate strategy - universally across the country and consistently from the outset of the epidemic. So, __how does the flattened curve in South Korea look like today, and how does it compare to other countries__?
+(Last updated on `r time`. Published on November 13, 2020. An earlier version, _"The flattened COVID-19 curve in South Korea - and comparative perspectives among high-resource settings"_, was published at [Medium](https://medium.com/@yj.choi.isquared/flattening-covid-19-curve-in-south-korea-and-comparison-among-oecd-countries-singapore-and-taiwan-ae211a5645c9))
 
-We will compare metrics of the epidemic curve in South Korea and other high-resource settings, specifically the Organisation for Economic Co-operation and Development (OECD) member countries. In addition, Taiwan and Singapore are included, considering their exemplary handling of the epidemic (at least until recently). Understanding different epidemic curves to date will help us not only address the current crisis but also prevent, delay, and flatten the next waves.
+More than 10 months after the first reported COVID-19 case, the epidemic has hit countries around the globe with different intensity at different time. Some countries like Taiwan has managed to avoid major outbreaks all together, some have controlled outbreaks relatively effectively (e.g., New Zealand and South Korea), but many have had a substantial outbreak, often followed by another.  
+
+A clear lesson so far is no country is safe from the pandemic:    
+
+* After impressive initial success in preventing the epidemic, Singapore has experienced [substantial outbreaks among vulnerable groups in the country](https://www.npr.org/sections/coronavirus-live-updates/2020/04/20/838324209/singapore-sees-surge-in-covid-19-cases-now-has-highest-number-in-southeast-asia).   
+* Eastern European countries [avoided the epidemic in Spring](https://www.theguardian.com/world/2020/may/05/why-has-eastern-europe-suffered-less-from-coronavirus-than-the-west) but [later faced major outbreaks](https://abcnews.go.com/International/eastern-europe-largely-avoided-coronavirus-1st-wave-now/story?id=73674366).    
+* Frustratingly, though not unexpected, bigger second wave of transmission have affected many - even in high-resource countries that have controlled the first wave, which seemed insurmountable back then.       
+
+We will compare epidemic curves among the Organisation for Economic Co-operation and Development (OECD) member countries. Understanding different epidemic curves to date will help us hopefully address the current crisis and more importantly prevent, delay, and flatten the next waves.  
 
 _Hover over each figure to see values and more options_.  
 
 _See data sources and methods at the end_.  
 
-####__1. Latest snapshot by country__
+#### __1. Latest snapshot by country__
 
-Before we check the epidemic curve to date, let's briefly compare cumulative incidence (number of confirmed cases per 100,000 population) and mortality rates. In South Korea (blue bars below), incidence rate is relatively low (left panel), despite widespread testing. Considering different testing rates, COVID-19 specific mortality rate per population (right panel) may be more appropriate to compare across countries. Singapore, South Korea, and Taiwan all have substantially low COVID specific mortality rates. For data values and interactive options, see this.
+Before we check the epidemic curve to date, let's briefly compare __cumulative incidence__ (number of reported cases per 100,000 population) and __cumulative mortality rates__ (number of reported COVID-19 deaths per 100,000 population). Considering different testing rates, COVID-19 specific mortality rate per population (right panel) may be more appropriate to compare across countries.   
 
-
-```{r plotincidence, results="asis", fig.align="left", out.width="800px"}
+```{r plotincidence, fig.align="left", out.width="800px"}
 
 dtafig<-dtacurve%>%
-    filter(oecd==TRUE | country=="Taiwan" | country=="Singapore")%>%
+    filter(oecd==TRUE)%>%
     filter(latest==TRUE)     
 
 #write.csv(dtafig, "KCOVID/dtaKCOVIDsummary.csv")
 
 dtafig$country<-factor(dtafig$country, 
                     levels = unique(dtafig$country) 
-                    [order(dtafig$incidence, decreasing = TRUE)])
+                    [order(dtafig$incidence, decreasing = FALSE)])
 
-colorvector<-c('lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','orange',   'lightgray','lightgray',
-'#1F77B4',  'lightgray', 'lightgray','lightgray','orange',
-'lightgray','lightgray','#969696')
+colorvector<-c(
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','lightgray',
+    'lightgray','#9FE8C5','lightgray','lightgray','lightgray',
+    'lightgray','lightgray','lightgray','lightgray','#9FC5E8',
+    'lightgray','lightgray','lightgray','lightgray','lightgray','#878787')
+
 colorlist<- list(color = colorvector)
 
-figincidence<-plot_ly(dtafig, x=~country, y=~incidence, type = 'bar',
-              name= "country", marker=colorlist)%>%
+figincidence<-
+    plot_ly(dtafig, 
+            y=~country, x=~incidence, type = 'bar', orientation="h",
+            name= "country", marker=colorlist,
+            text = ~incidence, textposition = 'outside')%>%
     layout(
-            title = c("COVID-19 confirmed cases per 100,000 population"),     
-            xaxis = list(
+            yaxis = list(
                          autotick = FALSE,
                          showticklabels = TRUE, 
                          tickfont = list(size=10), 
-                         tickangle=-90),
-            yaxis = list(title = "Incidence rate (per 100,000 population)") 
+                         tickangle= 0),
+            xaxis = list(title = "Cumulative cases/100,000 population", showgrid=FALSE) 
             )
 
 figincidence
 ```
 
-
-```{r plotmortality, results="asis", fig.align="left", out.width="800px"}
+```{r plotmortality, fig.align="left", out.width="800px"}
 
 
 dtafig$country<-factor(dtafig$country, 
                     levels = unique(dtafig$country) 
-                    [order(dtafig$mortality, decreasing = TRUE)])
+                    [order(dtafig$mortality, decreasing = FALSE)])
 
-figmortality<-plot_ly(dtafig, x=~country, y=~mortality, type = 'bar',
-              name= "country", marker=colorlist)%>%
+figmortality<-
+    plot_ly(dtafig, y=~country, x=~mortality, type = 'bar',
+            orientation="h",
+            name= "country", marker=colorlist,
+            text = ~mortality, textposition = 'outside')%>%
     layout(
-            title = c("COVID-19 deaths per 100,000 population"),     
-            xaxis = list(title = "Country",  
+            yaxis = list(
                          autotick = FALSE,
                          showticklabels = TRUE, 
                          tickfont = list(size=10), 
-                         tickangle=-90),
-            yaxis = list(title = "per 100,000 population") 
+                         tickangle=0),
+            xaxis = list(title = "Cumulative deaths/100,000 population", showgrid=FALSE) 
             )
 
 figmortality
 ```
 
-```{r plotincidencemortality, fig.align="left", out.width="800px"}
+```{r plotnewcases, fig.align="left", out.width="800px"}
+colorvector<-c(
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#EADCD1',
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#EADCD1',
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#EADCD1',
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#EADCD1',
+    '#EADCD1','#9FE8C5','#EADCD1','#EADCD1','#EADCD1',
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#9FC5E8',
+    '#EADCD1','#EADCD1','#EADCD1','#EADCD1','#EADCD1','#878787')
 
-subplot(figincidence, figmortality, shareX=TRUE, shareY = FALSE)%>%
+colorlist<- list(color = colorvector)
+
+dtafig$country<-factor(dtafig$country, 
+                    levels = unique(dtafig$country) 
+                    [order(dtafig$latestcasespp, decreasing = FALSE)])
+
+fignewcases<-
+    plot_ly(dtafig, y=~country, x=~latestcasespp, type = 'bar',
+            orientation="h",
+            name= "country", marker=colorlist,
+            text = ~latestcasespp, textposition = 'outside')%>%
+    layout(
+            yaxis = list(
+                         autotick = FALSE,
+                         showticklabels = TRUE, 
+                         tickfont = list(size=10), 
+                         tickangle=0),
+            xaxis = list(title = "Daily new cases/100,000 population", showgrid=FALSE) 
+            )
+
+fignewcases
+```
+
+```{r plotincidencemortality, results="asis", fig.align="left", out.width="800px"}
+
+subplot(figincidence, figmortality, shareX=TRUE, shareY = FALSE, margin=0.05)%>%
     layout(showlegend=FALSE,
-           title="COVID-19 incidence and mortality rate (per 100,000)", 
+           title="Cumulative COVID-19 cases vs. deaths", 
            xaxis = list(showticklabels = TRUE, tickfont = list(size=8), tickangle=-90))
 ```
-And, in case you wonder about case fatality rate. South Korea might have relatively less clinically severe patient population, with relatively young patient population. 
 
-```{r plotcfr, results="asis", fig.align="left", out.width="800px"}
+And, cumulative incidence vs. __new daily cases__ (7-day rolling average of daily new reported cases per 100,000 population): New daily cases (right panel) shows the current burden of transmission. 
+```{r plotcumulativenewcases, results="asis", fig.align="left", out.width="800px"}
+
+subplot(figincidence, fignewcases, shareX=TRUE, shareY = FALSE, margin=0.05)%>%
+    layout(showlegend=FALSE,
+           title="Cumulative vs. daily new COVID-19 cases", 
+           xaxis = list(showticklabels = TRUE, tickfont = list(size=8), tickangle=-90))
+```
+
+```{r plotcfr, fig.align="left", out.width="800px"}
 
 dtafig$country<-factor(dtafig$country, 
                     levels = unique(dtafig$country) 
@@ -383,643 +449,177 @@ figcfr<-plot_ly(dtafig, x=~country, y=~cfr, type = 'bar',
 figcfr
 ```
 
+#### __2. Epidemic curve by country__
 
+The below shows trends of __7-day rolling averages of daily new cases per 100,000 population__ since February, 2020. 
 
-####__2. Epidemic curve by country__
+All countries are presented below in groups, due to varying range of peak height. Top panel has countries with relatively lower peak, and the bottom panel shows countries with higher peak.
 
-The epidemic curve in this analysis was constructed based on __the number of new confirmed cases each day__. Considering vastly different population sizes, _the number of new confirmed cases each day per 100,000 population_ was used, instead of the absolute number. In addition, _7-day rolling averages_ were used to avoid any isolated peaks/drops, which can be caused by various reasons other than the true course of the epidemic itself (e.g., changes in definition, and lab process delay). __Despite varying testing rates, especially at the outset, the shape of the curve provides insight about the epidemic in each country__. See annex for further information about methods.
+Note:  
+* The x-axis is date since February.    
+* The y-axis is 7-day rolling average of daily new cases per 100,000 population.   
+* `The light gray box` represents the number of daily new cases 20 or lower per 100,000.     
+* <span style="color: #195F90;">The darker blue section of the line</span> represents the last 30 days.    
 
-Let's focus on the __first wave__ of the epidemic, which we define to start when cumulative incidence exceeds 1 confirmed case per 100,000 population. The __peak__ is when the number of new confirmed cases is at its maximum. There are three distinctive phases:  
-
-* Pre-peak phase (red shade in the below figure): Period when the number of new confirmed cases increases. In many countries, though not all, we have seen an exponential growth in the total confirmed cases during this phase.  
-* Post-peak phase (orange shade): Period when the number of new confirmed cases declines to the level/threshold where the first wave started.  
-* Relative stable phase (yellow shade): The number of new confirmed cases remain more or less stable - under the level before the first wave. __Incidence still increases, but at a much slower rate than before. This last phase provides critical opportunities to realign resources in order to prevent, delay, and flatten the next wave__.  
-
-With successful control of the epidemic, we will see both narrow (in length) and short (in height) peak.
-
-#####__2.1 Flattened curve in South Korea__
-```{r NumbersForPaper}
-#for the paper
-temp<-dtacurve%>%filter(latest==TRUE)%>%filter(is.na(startdate)==FALSE)%>%select(country, startdate, peakdate, incidence, pop)%>%arrange(startdate, country)
-    head(temp, 10)
-    
-temp<-dtacurve%>%filter(country=="Italy" | country=="South Korea" | country=="Iran (Islamic Republic of)") %>%select(country, date, incidence, cases)%>%arrange(date, country)
-    #View(temp)    
-    
-temp<-dtacurve%>%filter(latest==TRUE)%>%select(country, date,startdate, incidence)%>%arrange(incidence)
-    tail(head, 20)
-
-
-```
-
-```{r}
-
-temp<-dtacurve%>%filter(country=="South Korea") 
-
-startdate<-max(temp$startdate, na.rm = TRUE)
-peakdate<-max(temp$peakdate, na.rm = TRUE)
-peakcasespp<-max(temp$peakcasespp, na.rm = TRUE)
-enddate<-max(temp$enddate, na.rm = TRUE)
-daysstable<-max(temp$date)- max(temp$enddate, na.rm = TRUE)
-```
-
-The data clearly show the three phases in South Korea. The cumulative incidence rate (gray bars, left axis) exceeded 1 per 100,000 population on `r startdate`, and the daily new cases (black line, right axis) increased steeply, reaching the peak of `r peakcasespp` new confirmed cases per 100,000 population on `r peakdate`. Then, new cases started to drop consistently, entering to the second phase (orange shade). Note that the cumulative incidence still increases substantially during the second phase. For over a month, the country has been well into the relatively stable phase (yellow shade) since `r enddate`. Cumulative incidence has increased at a much lower rate recently.
-
-However, there was a second peak (though relatively small) in late August. 
-
-```{r plotSKrate_original, fig.align="left", out.width="800px"}
-
-dtafig<-dtacurve%>%filter(country=="South Korea") 
-
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKorea.csv")
-
-shapelist<-list(
-            list(
-                type = "rect",  fillcolor = "#f03b20", 
-                line = list(color = "#f03b20"), opacity = 0.2,
-                x0=min(dtafig$date), x1=max(dtafig$peakdate, na.rm = TRUE),xref = "x",
-                y0=0,y1=1.5, yref = "y") , 
-            list(
-                type = "rect",  fillcolor = "#fd8d3c", 
-                line = list(color = "#fd8d3c"), opacity = 0.2,
-                x0=min(dtafig$peakdate, na.rm = TRUE), x1=max(dtafig$enddate, na.rm = TRUE),xref = "x",
-                y0=0,y1=1.5, yref = "y" ),
-            list(
-                type = "rect",  fillcolor = "#fed976", 
-                line = list(color = "#fed976"), opacity = 0.2,
-                x0=max(dtafig$enddate, na.rm = TRUE),x1=max(dtafig$date),xref = "x",
-                y0=0,y1=1.5, yref = "y" )
-            )
-
-plot_ly(dtafig, x=~date, 
-        y=~newcasessmoothpp, name="New cases",
-        type='scatter',mode = 'lines', 
-        marker=list(color = c( "black"), size = 1),
-        line=list(color = c( "black"))
-        ) %>%
-    add_trace(
-        y=~incidence, name="Total cases", 
-        type='bar', 
-        marker=list(color = c( "lightgray"), size = 1),
-        line=list(color = c( "lightgray")),
-        #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
-        yaxis='y2'
-        )%>%
-    add_segments(x = min(dtafig$date), xend = max(dtafig$date), 
-                 y = 0.343, yend = 0.343, yaxis='y', 
-                 marker = list(color = "black", size = 2.2),
-                 line= list(color = "black", dash = 'dot'),
-                 showlegend=FALSE)%>%    
-    add_annotations(x = as.Date("2020-04-05"), y = 0.4, yaxis='y',
-                    text="New cases at the start level",
-                    showarrow = FALSE, 
-                    font = list(color = "black", size = 15))%>%    
-    layout(
-        shapes=shapelist, 
-        title = c("Trend of new and total cases per 100,000 population during the first wave"),
-        xaxis = list(title = "", tickfont = list(size=10), showgrid = FALSE), 
-        yaxis = list(title = "Daily new cases per 100,000 population", 
-                     range=c(0,1.5), 
-                     overlaying='y2', side="left", showgrid = FALSE ),
-        yaxis2 = list(title = "Total cases per 100,000 population", 
-                     range=c(0,50), 
-                     side="right", showgrid = FALSE),
-        margin = list(b = 100, r=100), 
-        legend=list(orientation="h", xanchor = "center", yanchor = "center", 
-                    x = 0.5, y = -0.1)
-        )
-
-```
-
-```{r plotSKrate, results="asis", fig.align="left", out.width="800px"}
-
-dtafig<-dtacurve%>%filter(country=="South Korea") 
-
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKorea.csv")
-
-shapelist<-list(
-            list(
-                type = "rect",  fillcolor = "#f03b20", 
-                line = list(color = "#f03b20"), opacity = 0.2,
-                x0=min(dtafig$date), 
-                x1=max(dtafig$peakdate, na.rm = TRUE),xref = "x",
-                y0=0,y1=300, yref = "y2") , 
-            list(
-                type = "rect",  fillcolor = "#fd8d3c", 
-                line = list(color = "#fd8d3c"), opacity = 0.2,
-                x0=max(dtafig$peakdate, na.rm = TRUE),
-                x1=as.character("2020-03-11"),xref = "x",
-                y0=0,y1=300, yref = "y2" ),
-            list(
-                type = "rect",  fillcolor = "#fed976", 
-                line = list(color = "#fed976"), opacity = 0.2,
-                x0=as.character("2020-03-11"), 
-                x1=max(dtafig$date),xref = "x",
-                y0=0,y1=300, yref = "y2" )
-            )
-
-
-plot_ly(dtafig, x=~date, 
-        y=~newcasessmoothpp, name="New cases",
-        type='scatter',mode = 'lines', 
-        marker=list(color = c( "black"), size = 1),
-        line=list(color = c( "black"))
-        ) %>%
-    add_trace(
-        y=~incidence, name="Total cases", 
-        type='bar', 
-        marker=list(color = c( "lightgray"), size = 1),
-        line=list(color = c( "lightgray")),
-        #fill = 'tozeroy', fillcolor = 'lightgray', opacity = 0.1,
-        yaxis='y2'
-        )%>%
-    add_segments(x = min(dtafig$date), xend = max(dtafig$date), 
-                 y = 0.343, yend = 0.343, yaxis='y', 
-                 marker = list(color = "black", size = 2.2),
-                 line= list(color = "black", dash = 'dot'),
-                 showlegend=FALSE)%>%    
-    add_annotations(x = as.Date("2020-04-05"), y = 0.4, yaxis='y',
-                    text="New cases at the start level",
-                    showarrow = FALSE, 
-                    font = list(color = "black", size = 15))%>%    
-    layout(
-        shapes=shapelist, 
-        title = c("Trend of new and total cases per 100,000 population during the first wave"),
-        xaxis = list(title = "", tickfont = list(size=10), showgrid = FALSE), 
-        yaxis = list(title = "Daily new cases per 100,000 population", 
-                     range=c(0,1.5), 
-                     overlaying='y2', side="left", showgrid = FALSE ),
-        yaxis2 = list(title = "Total cases per 100,000 population", 
-                     range=c(0,50), 
-                     side="right", showgrid = FALSE),
-        margin = list(b = 100, r=100), 
-        legend=list(orientation="h", xanchor = "center", yanchor = "center", 
-                    x = 0.5, y = -0.1)
-        )
-
-```
-
-
-#####__2.2 OECD countries also in the relative stable phase__
-```{r}
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)
-nlikeSK<-(length(unique(dtafig$country)) - 1)
-
-maxday<-max(dtafig$day)
-```
-
-Among OECD members, currently `r nlikeSK` other countries also have entered the relatively stable phase, although the first wave started later. _Holding beginning of the first wave on day 0_, the following figure presents the length and height of the peak. 
-
-It is notable that several countries with a substantially high peak also have entered this phase.   
-
-* __Iceland is the first country that entered the relatively stable phase, among those with a very high peak__ (see the following section), although it took over 50 days to pass the peak phases.   
-
-Note: The x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population (necessary for comparing big and small countries). The dotted horizontal line is the number of new cases at the start of the first wave.  
-
-```{r}
-
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==FALSE)%>%
-    select(country, day, newcasessmoothpp)
-    
-    plot_ly(dtafig, x=~day, y=~newcasessmoothpp, type = 'scatter',mode = 'lines', color=~country )%>%
-    layout(showlegend=TRUE,
-           xaxis = list(title = "Day since start of the first wave", 
-                        tickfont = list(size=10))) 
-```
-
-```{r plotSKlike, eval=FALSE, fig.align="left", out.width="200px"}
-
-
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp<=startcasespp)%>%
-    select(country, day, newcasessmoothpp)%>%
-    mutate(
-        group=paste0("Y_",country)
-    ) %>% 
-    select(-country)%>%
-    arrange(day, group) %>% 
-    spread(group, newcasessmoothpp, fill = NA, convert = FALSE)%>%
-    rename(Y_NZ = "Y_New Zealand",
-           Y_SK = "Y_South Korea")
-
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaLike.csv")
-
-plot_ly(dtafig, x=~day, y=~Y_Australia, name = "Australia", 
-        type = 'scatter', mode='lines', line = list(color = c("#bae4b3")),
-        hoverinfo = 'text',
-        text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', Y_Australia)) %>%
-    add_trace(y=~Y_Greece, name="Greece", line = list(color = c("#bdd7e7")) ,
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_Greece)) %>%
-    add_trace(y=~Y_Iceland, name="Iceland", line = list(color = c("#fdbe85")) ,
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_Iceland)) %>%
-    add_trace(y=~Y_Lithuania, name="Lithuania", line = list(color = c("#addd8e")) ,
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_Lithuania)) %>%   
-    add_trace(y=~Y_NZ, name="New Zealand", line = list(color = c("#fcae91")) ,
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_NZ)) %>%
-    add_trace(y=~Y_Slovenia, name="Slovenia", line = list(color = c("#cbc9e2")) ,
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_Slovenia)) %>%
-    add_trace(y=~Y_SK, name="South Korea", line = list(color = c("#636363"), width=3),  
-            hoverinfo = 'text',
-            text = ~paste('</br> Day of the first wave: ', day,
-                          '</br> Date: ', date,
-                          '</br> New cases per 100,000: ', Y_Slovenia)) %>%
-    layout(showlegend=TRUE,
-           xaxis = list(title = "Day since start of the first wave", 
-                        tickfont = list(size=10),
-                        range=c(0, maxday) ), 
-           yaxis = list(title = "Daily new confirmed cases per 100,000 population") 
-           )
-
-```
-
-```{r plotSKlike_thumbnail, results="asis", fig.align="left", out.width="800px", out.height="200px"}
+```{r plotpanel, fig.align="left", out.width="300px", out.height="200px"}
+mindate<-min(dtafig$date)
+maxdate<-max(dtafig$date)
 
 panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
+    plot_ly(x = ~date)%>% 
+    add_trace(
+        y = 0.1, type = 'scatter', mode = 'lines',
+        line= list(color = "#F1F1F1") ) %>%    
+    add_trace(
+        y = 20, type = 'scatter', mode = 'lines',
+        fill = 'tonexty',fillcolor='#EEEEEE', opacity=0.1,
+        line= list(color = "#F1F1F1") ) %>%    
+    add_trace(
+        y = ~newcasessmoothpp, type = 'scatter', mode = 'lines',
+        line= list(color = "#70A8CF"),  
+        hoverinfo = 'text',
+        text = ~paste('</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-    #add_lines(line=list(color=("'#1F77B4'"))) %>%
-    #add_lines(line=list(color=("darkgray"))) %>%    
-    add_lines() %>%    
-    add_lines(y = ~startcasespp,
-            line= list(color = "gray", dash = 'dot') ) %>%
+    add_trace(
+        y = ~newcasessmoothpplatestmonth, type = 'scatter', mode = 'lines',
+        line= list(color = "#195F90") ) %>%
+    add_trace(
+        y = ~latestcasespp, type = 'scatter', mode = 'markers',
+        marker = list(size = 5,color ="#195F90"),
+        text = ~latestcasespp, 
+        textfont=list(size=10, color="#195F90"), 
+        textposition = "bottom left"
+        )%>%       
     add_annotations(
         text = ~unique(country),
         x = 0.5,
-        y = 0.9,
+        y = 0.8,
         xref = "paper",
         yref = "paper",    
         xanchor = "center", yanchor = "bottom", 
         showarrow = FALSE,
-        font = list(size = 10)
-    ) %>%
+        font = list(size = 10) ) %>%
     layout(
         showlegend = FALSE,
-        title = c("Trend of daily new confirmed cases per 100,000 population since the first wave"),
-        xaxis=list(range=c(0, maxday), showgrid = FALSE), 
-        yaxis=list( title="", showgrid = FALSE) 
-    )
-
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp<=startcasespp)
-
-dtafig%>%
-    group_by(country) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = FALSE)    
-
+        title = c(""),
+        xaxis=list(range=c(mindate, maxdate), showgrid = FALSE, 
+                    autotick = TRUE,
+                    tickfont = list(size=10), 
+                    tickangle= 45), 
+        yaxis=list(range=c(0,maxy), title="", showgrid = FALSE) 
+        )
 ```
 
-#####__2.3 OECD countries not yet in the relative stable phase__
+```{r plotSKunlike1, results="asis", fig.align="left", out.width="800px", out.height="200px", eval=FALSE}
 
-Meanwhile, a majority of countries have not yet entered the relatively stable phase. Most of these countries have a substantially higher peak, compared to the above countries.
-
-```{r plotSKunlikeMedium, fig.align="left", out.width="800px", out.height="100px"}
-#{r plotSKunlikeMedium, results='asis', fig.align="left", out.width="600px", out.height="300px"}
-
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5, y = 0.9, xref = "paper", yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE, font = list(size = 15)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    title = c(""),
-    xaxis=list(range=c(0,60), title="Day",titlefont = list(size = 15)), 
-    yaxis=list(range=c(0,4),title="New cases per 100,000 population",titlefont = list(size = 15)) 
-  )
-
-dtafig<-dtacurve%>%filter(country=="Finland"| country=="Lithuania")
-
-dtafig%>%
-    group_by(country) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)   
-
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5, y = 0.9, xref = "paper", yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE, font = list(size = 15)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    title = c(""),
-    xaxis=list(range=c(0,60), title="Day",titlefont =list(size = 15)), 
-    yaxis=list(range=c(0,15),title="New cases per 100,000 population",titlefont = list(size = 15)) 
-  )
-
-dtafig<-dtacurve%>%filter(country=="Belgium"| country=="United States")
-
-dtafig%>%
-    group_by(country) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)            
-```
-
-All countries are presented below in groups, due to varying range of peak height. Top panel has countries with relatively lower peak, and the bottom panel shows countries with higher peak.
-
-Again, the x-axis is days from the first day of phase 1. The y-axis is daily new cases per 100,000 population.
-
-```{r}
-
-#code from: https://plotly-r.com/arranging-views.html
-
-    dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(is.na(enddate)==TRUE)
-    #table(dtafig$peakcasespp)
-    maxday<-max(dtafig$day)
-
-    dtafig1<-dtafig%>%filter(peakcasespp<4)
-    length(table(dtafig1$country))
-    dtafig2<-dtafig%>%filter(peakcasespp>=4 & peakcasespp<13)
-    length(table(dtafig2$country))
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp<20)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
     
-    maxday
-
-    
-```
-
-```{r plotSKunlike1, results="asis", fig.align="left", out.width="300px", out.height="200px"}
-
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-    add_lines() %>%    
-    add_lines(y = ~startcasespp,
-            line= list(color = "gray", dash = 'dot') ) %>%
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5,
-    y = 0.9,
-    xref = "paper",
-    yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE,
-    font = list(size = 10)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    #title = c("Trend of daily new confirmed cases per 100,000 population since the first wave"),
-    title = c(""),
-    xaxis=list(range=c(0, maxday)), 
-    yaxis=list(range=c(0,4), title="") 
-  )
-
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%filter(peakcasespp<4)
-
-maxday<-max(dtafig$day)
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike1.csv")
+nobs<-ceiling(length(unique(dtafig$country))/4)
+maxy<-max(dtafig$newcasessmoothpp)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)        
+    add_trace(
+        y = 0.45, type = 'scatter', mode = 'lines',
+        line= list(color = "#F1F1F1")  ) %>%    
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
 
-```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="400px"}
+```{r plotSKunlike2, results="asis", fig.align="left", out.width="800px", out.height="200px"}
 
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp>=20 & peakcasespp<100)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
 
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-    add_lines() %>%    
-    add_lines(y = ~startcasespp,
-            line= list(color = "gray", dash = 'dot') ) %>%    
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5,
-    y = 0.9,
-    xref = "paper",
-    yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE,
-    font = list(size = 10)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    title = c(""),
-    xaxis=list(range=c(0, maxday), title=""), 
-    yaxis=list(range=c(0,15), title="") 
-  )
-
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%filter(peakcasespp>=4 & peakcasespp<13)
-
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike2.csv")
-
-maxday<-max(dtafig$day)
+nobs<-ceiling(length(unique(dtafig$country))/4)
+maxy<-max(dtafig$newcasessmoothpp)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
 
-```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="1200px"}
+```{r plotSKunlike3, results="asis", fig.align="left", out.width="800px", out.height="400px"}
 
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-    add_lines() %>%    
-    add_lines(y = ~startcasespp,
-            line= list(color = "gray", dash = 'dot') ) %>%    
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5,
-    y = 0.9,
-    xref = "paper",
-    yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE,
-    font = list(size = 10)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    title = c(""),
-    xaxis=list(range=c(0, maxday), title=""), 
-    yaxis=list(title=c(0, 30),"") 
-  )
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp>=100 & peakcasespp<200)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
 
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latestcasespp>startcasespp)%>%filter(peakcasespp>=13)
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
-#write.csv(dtafig, "KCOVID/dtaKCOVIDSouthKoreaUnlike3.csv")
-maxday<-max(dtafig$day)
+mindate<-min(dtafig$date)
+maxdate<-max(dtafig$date)
+maxy<-max(dtafig$newcasessmoothpp)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 6, shareX = TRUE, shareY = TRUE)
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
 
-* __In Spain, the number of new cases indeed had come down to the start level after 52 days, but then it quickly rebounded above the threshold (dotted gray line)__. Spain's example emphasizes that, even among these countries, it is important to keep the number of new infections low without any rebound.
+```{r plotSKunlike4, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
-#####__2.4 Taiwan, Singapore, and South Korea__
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp>=200 & peakcasespp<400)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
 
-Now, back to the three which have been spotlighted for their exemplary handling of the epidemic. Taiwan has shown the best results of epidemic control - with very slow or no apparent progression to the first wave. In Singapore, the first wave started around the same time with South Korea. The outbreak had been controlled successfully for over a month, but [recently the number of new cases has increased exponentially](https://www.npr.org/sections/coronavirus-live-updates/2020/04/20/838324209/singapore-sees-surge-in-covid-19-cases-now-has-highest-number-in-southeast-asia). __The Singapore case shows the challenges to control the epidemic even under strong public health systems__.
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
-```{r plotSKcomparemore, results="asis", fig.align="left", out.width="800px", out.height="300px"}
-
-panel <- . %>% 
-  plot_ly(x = ~day, y = ~newcasessmoothpp,
-          hoverinfo = 'text',
-          text = ~paste('</br> Day of the first wave: ', day,
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)) %>%
-  add_lines(line=list(color=("'#1F77B4'"))) %>%
-  add_annotations(
-    text = ~unique(country),
-    x = 0.5, y = 0.9, xref = "paper", yref = "paper",    
-    xanchor = "center", yanchor = "bottom", 
-    showarrow = FALSE, font = list(size = 15)
-  ) %>%
-  layout(
-    showlegend = FALSE,
-    xaxis=list(title="Day",titlefont = list(size = 15)), 
-    yaxis=list(title="New cases per 100,000 population",titlefont = list(size = 15)) 
-  )
-
-dtafig<-dtacurve%>%filter(country=="Taiwan" | country=="Singapore" | country=="South Korea")
-
-#write.csv(dtafig, "KCOVID/dtaKCOVIDtheTHREE.csv")
+mindate<-min(dtafig$date)
+maxdate<-max(dtafig$date)
+maxy<-max(dtafig$newcasessmoothpp)
 
 dtafig%>%
     group_by(country) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)    
-
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
 
-####__3. Putting it all together - timeline, length and height of the peak__
+```{r plotSKunlike5, results="asis", fig.align="left", out.width="800px", out.height="600px"}
 
-To summarize, the first figure below shows the timeline of the first wave and its phases among OECD countries. __South Korea had the first wave earlier than any other countries__ (red dots). __It also has one of the shortest length of the peak__ (between red and yellow dots). Again, the peak length is still to be determined in some countries (with no yellow dot below). 
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp>=400 & peakcasespp<600)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
 
-```{r plottimeline, results="asis", fig.align="left", out.width="800px", out.height="800px"  }
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latest==TRUE) 
+mindate<-min(dtafig$date)
+maxdate<-max(dtafig$date)
+maxy<-max(dtafig$newcasessmoothpp)
 
-dtafig$country <- factor(dtafig$country, 
-                         levels = unique(dtafig$country)
-                         [order(dtafig$startdate, dtafig$enddate, decreasing = TRUE)])
-
-
-plot_ly(dtafig, color = I("gray80"))%>%
-    add_segments(x = ~startdate, xend = ~peakdate, y = ~country, yend = ~country, showlegend = FALSE)%>% 
-    add_segments(x = ~peakdate, xend = ~enddate, y = ~country, yend = ~country, showlegend = FALSE)%>% 
-    add_markers(x = ~startdate, y = ~country, name = "Pre-peak starts", color = I("#f03b20"))%>% 
-    add_markers(x = ~peakdate, y = ~country, name = "Post-peak starts", color = I("#fd8d3c"))%>% 
-    add_markers(x = ~enddate, y = ~country, name = "Stable phase starts", color = I("#fed976") )%>%
-layout(
-    title="Timeline of the first COVID-19 wave", 
-    yaxis = list(title="",tickfont = list(size=12)),  
-    xaxis = list(title="",tickfont = list(size=12)),
-    legend = list(orientation = 'v',legendfont = list(size=4),
-                  x = 1.1, y = 0.5))
-
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
 
-The next figure shows the height of the peak (the maximum number of new confirmed cases per 100,000 population) by country. The peak was relatively low in South Korea, following several other countries.
+```{r plotSKunlike6, results="asis", fig.align="left", out.width="800px", out.height="400px"}
 
-```{r plotheight, results="asis", fig.align="left", out.width="800px" }
+dtafig<-dtacurve%>%
+    filter(oecd==TRUE)%>%
+    filter(peakcasespp>=600)%>%
+    mutate(latestcasespp=round(latestcasespp, 0))
 
-dtafig<-dtacurve%>%filter(oecd==TRUE)%>%filter(latest==TRUE) 
+nobs<-ceiling(length(unique(dtafig$country))/4)
 
-dtafig$country <- factor(dtafig$country, 
-                         levels = unique(dtafig$country)
-                         [order(dtafig$peakcasespp, decreasing = TRUE)])
+mindate<-min(dtafig$date)
+maxdate<-max(dtafig$date)
+maxy<-max(dtafig$newcasessmoothpp)
 
-colorlistoecd<- list(color = c('lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','lightgray',
-'lightgray','lightgray','lightgray','lightgray','#1F77B4',  'lightgray','lightgray','lightgray','lightgray','lightgray','#969696'))
-
-fig<-plot_ly(dtafig, x=~country, y=~peakcasespp, 
-        type = 'bar', marker=colorlistoecd)%>%
-    layout(
-    yaxis = list(title="Peak number of new cases per 100,000 population"),
-    xaxis = list(title="",tickfont = list(size=10))  )
-
-
-dtafig<-dtacurve%>%filter(oecd==TRUE|country=="Taiwan" | country=="Singapore")%>%filter(latest==TRUE) 
-
-dtafig$country <- factor(dtafig$country, 
-                         levels = unique(dtafig$country)
-                         [order(dtafig$peakcasespp, decreasing = TRUE)])
-
-plot_ly(dtafig, x=~country, y=~peakcasespp, 
-        type = 'bar', marker=list(color = colorvector))%>%
-    layout(
-    title="Height of the peak",  
-    yaxis = list(title="Maximum number of new cases per 100,000 population"),
-    xaxis = list(title="",tickfont = list(size=10))  )
-
+dtafig%>%
+    group_by(country) %>%
+    do(p = panel(.)) %>%
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)        
 ```
-
-Finally, if we put together the height of the peak (on a log scale, Y axis) and time to the peak (distance between the red and orange dots above), a positive correlation appears (i.e., the longer the time to peak, the higher the peak).
-
-```{r plotheightlength, results="asis", fig.align="left", out.width="800px"}
-
-dtafig<-dtacurve%>%filter(oecd==TRUE|country=="Taiwan" | country=="Singapore")%>%
-    filter(latest==TRUE)%>%
-    mutate(length=peakdate-startdate)
-
-textlist <- list(
-  size = 10,
-  color = toRGB("grey50"))
-
-plot_ly(dtafig, x=~length, y=~peakcasespp, 
-        type = 'scatter', marker=list(color = colorvector, size=10), 
-        text = ~country)%>%
-    add_text(textfont = textlist, textposition = "top")%>%
-    layout(
-    showlegend=FALSE, 
-    title="Height of and time to the peak",    
-    yaxis = list(title="Maximum number of new cases per 100,000 population", type = "log"),  
-    xaxis = list(title="Number of days between start to peak",tickfont = list(size=10))  )
-
-```
-(Note: The unique curve in Singapore stresses that the numeric measures must be interpreted with the curve itself. Though Singapore's peak is high, the duration of its _true_ peak is much shorter than that in other countries.)
-
-In summary, data confirm that __South Korea is one of several high-resource countries that successfully controlled the first wave of COVID-19 and have moved into the relatively stable final phase of the first wave__. A majority of OECD countries have approached or passed the peak, when the number of new cases starts to decrease, though significant rebounds have occurred in some places. 
-
-__Moving into the more stable phase, in South Korea and all other countries, public heath authorities need to take full advantage of opportunities to realign resources in order to prevent, delay, and flatten the next wave__.
 
 ---
 
@@ -1029,17 +629,10 @@ __Data__
 1. All COVID-19 data (i.e., cumulative confirmed cases and deaths by day) come from [JHU/CSSE](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data). Accessed on `r date`.    
 2. All data on country population come from UN [World Population Prospects 2019 Revision](https://population.un.org/wpp/). Accessed on April 18, 2020.   
 
-Note on comparability: JHU/CSSE compiles the best available data, but a definition of confirmed cases (even COVID-19 deaths) may differ across countries and even within a country over time. The abrupt increase in the number of new cases in France, for example, likely reflect changes in the definition of confirmed cases.  
-
+Note on comparability: JHU/CSSE compiles the best available data, but a definition of confirmed cases (even COVID-19 deaths) may differ across countries and even within a country over time. The abrupt increase in the number of new cases in France, for example, likely reflect changes in the definition of confirmed cases. 
 
 __Measures__
 The number of new confirmed cases on each date was calculated based on the difference between cumulative numbers over two consecutive days. Then, a seven-day rolling average was calculated, hereinafter referred to as the _smoothed_ number of new confirmed cases. Then, the smoothed number was divided by the total population in the country: _the smoothed number of new confirmed cases per 100,000 population_.
-
-* The first wave was defined to start when the cumulative incidence rate exceeds one per 100,000 population. The smoothed number of new confirmed cases at the start of the first wave varies by country, but it averages around 0.5 per 100,000.  
-* The peak date of the wave was the date when the smoothed number of new confirmed cases per 100,000 population was at its height.  
-* The date entering the stable phase was when the smoothed number of new confirmed cases per 100,000 population was less than the number on the start date of the wave.
-
-COVID-mortality may be a more comparable indicator to understand the full extent of the epidemic, given considerably different testing strategies and testing rates. However, countries are currently at different stages of the curve, and comparison of mortality data would be possible once most countries are in a similar phase of the epidemic (i.e., well in the the stable phase).
 
 ---
 

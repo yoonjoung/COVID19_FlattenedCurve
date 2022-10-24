@@ -1,0 +1,14 @@
+name: COVID19_OECD
+title: COVID19_OECD
+username:
+account: isquared
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6655629
+bundleId: 6432454
+url: https://isquared.shinyapps.io/COVID19_OECD/
+when: 1666554538.10737
+lastSyncTime: 1666554538.10739
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: OECD country list.xlsx
