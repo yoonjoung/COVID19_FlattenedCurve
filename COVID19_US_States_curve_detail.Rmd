@@ -15,14 +15,14 @@ knitr::opts_chunk$set(echo=FALSE,
 date<-as.Date(Sys.time(	), format='%d%b%Y')
 time<-Sys.time()
 
-suppressMessages(library(dplyr))
-suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(dplyr)))
+suppressWarnings(suppressMessages(library(ggplot2)))
 suppressWarnings(suppressMessages(library(tidyverse)))
 suppressWarnings(suppressMessages(library(readxl)))
-suppressMessages(library(plotly))
-suppressMessages(library(Matrix))
-suppressMessages(library(stringr))
-suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(plotly)))
+suppressWarnings(suppressMessages(library(Matrix)))
+suppressWarnings(suppressMessages(library(stringr)))
+suppressWarnings(suppressMessages(library(stringi)))
 suppressWarnings(suppressMessages(library(readxl)))
 suppressWarnings(suppressMessages(library(lubridate)))
 suppressWarnings(suppressMessages(library(zoo)))
@@ -30,7 +30,7 @@ suppressWarnings(suppressMessages(library(zoo)))
 
 ```{r dtaPop}
 #estimates:Total population, both sexes combined, as of 1 July (thousands)
-dtapop<-read.csv("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
+dtapop<-read.csv("~/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
 
 dtapop<-dtapop%>%
     mutate(state=as.character(STNAME), 
@@ -114,8 +114,8 @@ dta<-dta%>%filter(is.na(pop)==FALSE)%>%
         newdeaths=deaths-lag(deaths),
         newdeaths=ifelse(state!=lag(state), NA, newdeaths),
         
-        incidence=round(100000*cases/pop, 1), # confiremd cases per 100,000 pop
-        cfr=round(100*deaths/cases, 1), # deaths per 100 confirmed cases   
+        incidence=round(100000*cases/pop, 0), # confiremd cases per 100,000 pop
+        cfr=round(100*deaths/cases, 2), # deaths per 100 confirmed cases   
         mortality=round(100000*deaths/pop, 1) # deaths per 100000 pop
     )%>%arrange(state, date)%>%
     mutate(
@@ -204,8 +204,11 @@ dtacurve<-dtacurve%>%
 
 ```
 
-
-####__Supplementary figures for "[COVID-19 waves in the US: How is my state doing? Seeing is believing.](https://rpubs.com/YJ_Choi/COVID19_US_states_curve)"__  
+#### __Supplementary figures for "[COVID-19 waves in the US: How is my state doing? Seeing is believing.](https://rpubs.com/YJ_Choi/COVID19_US_states_curve)"__  
+<div class="alert alert-info">
+__NOTE__   
+Since July 2, 2022, select data from this site have been presented in __[an interactive app](https://isquared.shinyapps.io/COVID19_US_States)__. This site is not maintained regularly anymore.
+</div>
 
 (Last updated on `r time`)
 
@@ -270,7 +273,7 @@ colorlist<- list(color = c(
  '#d9ef8b' ,
  '#a6d96a' ))
 ```
-####__Figure 1. Latest rate of daily new cases by state__
+#### __Figure 1. Latest rate of daily new cases by state__
 
 __Daily incidence rate__: The most recent 7-day average of new confirmed cases per day per 100,000 population. 
 
@@ -300,7 +303,7 @@ plot_ly(dtafig, y=~state, x=~latestcasespp, type = 'bar', orientation='h', marke
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
 
-####__Figure 2. Cumulative COVID-19 incidence rate by state__
+#### __Figure 2. Cumulative COVID-19 incidence rate by state__
 
 __Cumulative incidence rate__: number of confirmed cases __per 100,000 population__. It is often not comparable directly, considering different testing rates. Also, definitions of confirmed cases can be slightly different across states. 
 
@@ -330,7 +333,7 @@ plot_ly(dtafig, y=~state, x=~incidence, type = 'bar', orientation='h', marker=co
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: northeast, light orange: south, light green: midwest, green: west)
 
-####__Figure 3. Cumulative COVID-19 specific mortaliaty rate by state__
+#### __Figure 3. Cumulative COVID-19 specific mortaliaty rate by state__
 
 __Mortality rate__: number of COVID-19 deaths __per 100,000 population__. Considering different testing rates, this may be the most appropriate indicator to compare impact of the epidemic across states - with an assumption that states are similar in terms of their capacity to identify and report deaths due to COVID-19. 
 
@@ -359,7 +362,7 @@ plot_ly(dtafig, y=~state, x=~mortality, type = 'bar', orientation='h', marker=co
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
 
-####__Figure 4. Cumulative COVID-19 case fatality rate by state__
+#### __Figure 4. Cumulative COVID-19 case fatality rate by state__
 
 And, for those who wonder about __Case fatality rate__ (CFR): total number of deaths __per 100 confirmed cases__. CFR is sensitive to demographic and clinical characteristics of patients, heavily affected by testing strategies. CFR can be high in states where testing has been limited to only people with clinical symptoms. 
 
@@ -387,7 +390,7 @@ plot_ly(dtafig, y=~state, x=~cfr, type = 'bar', orientation='h', marker=colorlis
 ```
 (Colors represent [geogrpahic regions by USDA](https://www.ars.usda.gov/northeast-area/beltsville-md-bhnrc/beltsville-human-nutrition-research-center/docs/regions/). Orange: Northeast, light orange: South, light green: Midwest, green: West)
 
-####__Figure 5. Timeline of the first wave by state__
+#### __Figure 5. Timeline of the first wave by state__
 
 Note, the peak length is still to be determined in many states (with no yellow dot below).  
 
@@ -419,7 +422,7 @@ layout(
 
 ```
 
-####__Figure 6. Height of the peak by state__
+#### __Figure 6. Height of the peak by state__
 
 The following compares the height of the peak (the maximum number of new cases per 100,000 population) by state.      
 
@@ -441,7 +444,7 @@ plot_ly(dtafig, y=~state, x=~peakcasespp,
 
 ```
 
-####__Figure 7. Height of and time to the peak by state__
+#### __Figure 7. Height of and time to the peak by state__
 
 And, if we put together the height of the peak (on a log scale, Y axis) and time to the peak (distance between the red and orange dots above)...       
 

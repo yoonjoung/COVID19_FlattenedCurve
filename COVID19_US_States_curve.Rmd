@@ -16,14 +16,14 @@ knitr::opts_chunk$set(echo=FALSE,
 date<-as.Date(Sys.time(	), format='%d%b%Y')
 time<-Sys.time()
 
-suppressMessages(library(dplyr))
-suppressMessages(library(ggplot2))
+suppressWarnings(suppressMessages(library(dplyr)))
+suppressWarnings(suppressMessages(library(ggplot2)))
 suppressWarnings(suppressMessages(library(tidyverse)))
 suppressWarnings(suppressMessages(library(readxl)))
-suppressMessages(library(plotly))
-suppressMessages(library(Matrix))
-suppressMessages(library(stringr))
-suppressMessages(library(stringi))
+suppressWarnings(suppressMessages(library(plotly)))
+suppressWarnings(suppressMessages(library(Matrix)))
+suppressWarnings(suppressMessages(library(stringr)))
+suppressWarnings(suppressMessages(library(stringi)))
 suppressWarnings(suppressMessages(library(readxl)))
 suppressWarnings(suppressMessages(library(lubridate)))
 suppressWarnings(suppressMessages(library(zoo)))
@@ -31,7 +31,7 @@ suppressWarnings(suppressMessages(library(zoo)))
 
 ```{r dtaRegion}
 #estimates:Total population, both sexes combined, as of 1 July (thousands)
-dtaregion<-read_excel("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_US/DataUSDA/StatesByCensusRegionAndDivision.xlsx", sheet="Sheet1") %>%
+dtaregion<-read_excel("~/Dropbox/0 Project/COVID19_US/DataUSDA/StatesByCensusRegionAndDivision.xlsx", sheet="Sheet1") %>%
     select(state, region, division)%>%
     filter(is.na(state)==F)  
 
@@ -41,7 +41,7 @@ length(unique(dtaregion$state))
 
 ```{r dtaPop}
 #estimates:Total population, both sexes combined, as of 1 July (thousands)
-dtapop<-read.csv("C:/Users/YoonJoung Choi/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
+dtapop<-read.csv("~/Dropbox/0 Project/COVID19_US/DataCensusBureau/co-est2019-alldata.csv")
 
 dtapop<-dtapop%>%
     mutate(state=as.character(STNAME), 
@@ -209,6 +209,13 @@ dtacurve<-dtacurve%>%
     arrange(country, state, date)%>%
     group_by(state)%>%
     mutate(
+        day = row_number(),
+        maxday = max(day),
+        latestmonth= maxday-day<=30, 
+        newcasessmoothpplatestmonth = newcasessmoothpp,
+        newcasessmoothpplatestmonth = ifelse(latestmonth!=1, NA,
+                                             newcasessmoothpplatestmonth), 
+        
         latest=date==max(date), 
         
         peakcasespp=round(max(newcasessmoothpp, na.rm = TRUE), 1), 
@@ -230,9 +237,14 @@ dtacurve<-dtacurve%>%
 
 ```
 
-###__COVID-19 waves in the US: How is my state doing? Seeing is believing.__  
+### __COVID-19 waves in the US: How is my state doing? Seeing is believing.__  
 
-(Published on November 1, 2020. Last updated on `r date`) 
+<div class="alert alert-info">
+__NOTE__   
+Since July 2, 2022, select data from this site have been presented in __[an interactive app](https://isquared.shinyapps.io/COVID19_US_States)__. This site is not maintained regularly anymore.
+</div>
+
+(Last updated on `r date`. Published initially on November 1, 2020.) 
 
 [_For further data, including_ __states ranked by the latest 7-day average of new cases per population,__ _please see this._](https://rpubs.com/YJ_Choi/COVID19_US_supplement)
 
@@ -265,13 +277,22 @@ panel <- . %>%
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp_US)  )%>%
     add_lines(y = ~newcasessmoothpp,
-        line= list(color = "#073763"),  
+        line= list(color = "#70A8CF"),  
         hoverinfo = 'text',
         text = ~paste(
                       '</br> State: ', state,          
                       '</br> Date: ', date,
                       '</br> New cases per 100,000: ', newcasessmoothpp)  )%>%
-
+    add_trace(
+        y = ~newcasessmoothpplatestmonth, type = 'scatter', mode = 'lines',
+        line= list(color = "#195F90") ) %>%
+    add_trace(
+        y = ~latestcasespp, type = 'scatter', mode = 'markers',
+        marker = list(size = 5,color ="#70A8CF"),
+        text = ~latestcasespp, 
+        textfont=list(size=10, color="#70A8CF"), 
+        textposition = "bottom left"
+        )%>%  
     add_annotations(
         text = ~unique(state),
         x = 0.5, y = 0.90, xref = "paper", yref = "paper",    
@@ -288,210 +309,120 @@ panel <- . %>%
 
 ---
 
-####__Northeast__
-_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+#### __Northeast__
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. <span style="color: #195F90;">The darker blue section of the line represents the lastest 30 days.</span> The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
 _Hover over the figures to see the underlying data._
 ```{r plotNortheast, results="asis", fig.align="left", out.width="800px", out.height="650px"}
 
-dtafig<-dtacurve%>%filter(region=="Northeast")
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="Northeast")
 maxy<-max(dtafig$newcasessmoothpp)
-    
+nobs<-ceiling(length(unique(dtafig$state))/4)    
+
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-####__South Atlantic__
-_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+#### __South Atlantic__
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. <span style="color: #195F90;">The darker blue section of the line represents the lastest 30 days.</span> The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
 _Hover over the figures to see the underlying data._  
 ```{r plotSouthAtlantic, results="asis", fig.align="left", out.width="800px", out.height="650px"}
 
-dtafig<-dtacurve%>%filter(region=="South" & division=="South Atlantic")
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="South" & division=="South Atlantic")
 maxy<-max(dtafig$newcasessmoothpp)
+
+nobs<-ceiling(length(unique(dtafig$state))/4)    
 
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-####__South Central__
-_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+#### __South Central__
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. <span style="color: #195F90;">The darker blue section of the line represents the lastest 30 days.</span> The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
 _Hover over the figures to see the underlying data._
-```{r plotSouthCentral, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+```{r plotSouthCentral, results="asis", fig.align="left", out.width="800px", out.height="450px"}
 
-dtafig<-dtacurve%>%filter(region=="South" & division!="South Atlantic")
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="South" & division!="South Atlantic")
 maxy<-max(dtafig$newcasessmoothpp)
+
+nobs<-ceiling(length(unique(dtafig$state))/4)    
 
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-####__Midwest__
-_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+#### __Midwest__
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. <span style="color: #195F90;">The darker blue section of the line represents the lastest 30 days.</span> The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
 _Hover over the figures to see the underlying data._
-```{r plotMidwest, results="asis", fig.align="left", out.width="800px", out.height="650px"}
+```{r plotMidwest, results="asis", fig.align="left", out.width="800px", out.height="250px", eval=FALSE}
 
-dtafig<-dtacurve%>%filter(region=="Midwest" & (state!="Wisconsin" & state!="North Dakota" & state!="South Dakota"))
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="Midwest" & peakcasespp<100)
 maxy<-max(dtafig$newcasessmoothpp)
+
+nobs<-ceiling(length(unique(dtafig$state))/4)    
 
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
-```{r plotMidwestHigh, results="asis", fig.align="left", out.width="800px", out.height="250px"}
-dtafig<-dtacurve%>%filter(region=="Midwest" & (state=="Wisconsin" | state=="North Dakota" | state=="South Dakota"))
+```{r plotMidwestHigh, results="asis", fig.align="left", out.width="800px", out.height="450px"}
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="Midwest" & peakcasespp>=100)
 maxy<-max(dtafig$newcasessmoothpp)
+
+nobs<-ceiling(length(unique(dtafig$state))/4)    
 
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---
 
-####__West__
-_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
+#### __West__
+_Note: The x-axis is date since March. The y-axis is 7-day rolling average of daily new cases per 100,000 population. <span style="color: #195F90;">The darker blue section of the line represents the lastest 30 days.</span> The gray line is the US national data. The light gray box represents the number of daily new cases 10 or lower per 100,000._  
 
 _Hover over the figures to see the underlying data._
 ```{r plotWest, results="asis", fig.align="left", out.width="800px", out.height="1050px"}
 
-dtafig<-dtacurve%>%filter(region=="West")
+dtafig<-dtacurve%>%
+    mutate(latestcasespp=round(ifelse(latest==FALSE, NA, latestcasespp), 0))%>%
+    filter(region=="West")
 maxy<-max(dtafig$newcasessmoothpp)
 
-dtafig%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 5, shareX = TRUE, shareY = TRUE)  
-```
-
-```{r group}
-#FOUR groups
-temp<-dtacurve%>%filter(peakcasespp>=0  & peakcasespp<10)%>%filter(latest==TRUE)
-    length(unique(temp$state))    
-    table(temp$state)
-    ngroup1<-length(unique(temp$state))
-    listgroup1<-unique(temp$state)
-
-temp<-dtacurve%>%filter(peakcasespp>=10 & peakcasespp<30)%>%filter(latest==TRUE)
-    length(unique(temp$state))    
-    table(temp$state)
-    ngroup2<-length(unique(temp$state))
-    listgroup2<-unique(temp$state)
-    
-temp<-dtacurve%>%filter(peakcasespp>=30 & peakcasespp<60)%>%filter(latest==TRUE)
-    length(unique(temp$state))    
-    table(temp$state)
-    ngroup3<-length(unique(temp$state))
-    listgroup3<-unique(temp$state)    
-    
-temp<-dtacurve%>%filter(peakcasespp>=60)%>%filter(latest==TRUE)
-    length(unique(temp$state))    
-    table(temp$state)
-    ngroup4<-length(unique(temp$state))
-    listgroup4<-unique(temp$state)        
-```
-
-```{r plotpanel}    
-mindate<-min(dtacurve$date)
-maxdate<-max(dtacurve$date)
-
-panel <- . %>% 
-    plot_ly(x = ~date)%>% 
-    add_trace(
-        y = ~levellow, type = 'scatter', mode = 'lines',
-        line= list(color = "#EEEEEE") ) %>%    
-    add_trace(
-        y = ~levelhigh, type = 'scatter', mode = 'lines',
-        fill = 'tonexty',fillcolor='#EEEEEE', opacity=0.2,
-        line= list(color = "#EEEEEE") ) %>%      
-    add_lines(y = ~newcasessmoothpp_US,
-        line= list(color = "#BEBEBE"),
-        hoverinfo = 'text',
-        text = ~paste(
-                      '</br> United States',          
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp_US)  )%>%
-    add_lines(y = ~newcasessmoothpp,
-        line= list(color = "#073763"),  
-        hoverinfo = 'text',
-        text = ~paste(
-                      '</br> State: ', state,          
-                      '</br> Date: ', date,
-                      '</br> New cases per 100,000: ', newcasessmoothpp)  )%>%
-
-    add_annotations(
-        text = ~unique(state),
-        x = 0.5, y = 0.90, xref = "paper", yref = "paper",    
-        xanchor = "center", yanchor = "bottom", showarrow = FALSE,
-        font = list(size = 12)  )%>%
-    layout(
-        showlegend = FALSE,
-        yaxis=list(title="New cases per 100,000" , showgrid = FALSE),
-        xaxis=list(title="" , range=c(mindate,maxdate), showgrid = FALSE)
-        ) 
-
-```
-
-```{r plotSTATES1, fig.align="left", out.width="800px", out.height="250px"}
-
-dtafig<-dtacurve%>%filter(peakcasespp>=0  & peakcasespp<10)%>%
-    mutate(levellow=0, levelhigh=10)
+nobs<-ceiling(length(unique(dtafig$state))/4)    
 
 dtafig%>%
     group_by(state) %>%
     do(p = panel(.)) %>%
-    subplot(nrows = 1, shareX = TRUE, shareY = TRUE)  
-```
-
-```{r plotSTATES2, fig.align="left", out.width="800px", out.height="650px"}
-
-dtafig<-dtacurve%>%filter(peakcasespp>=10  & peakcasespp<30)%>%
-    mutate(levellow=10, levelhigh=30)
-
-dtafig%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 3, shareX = TRUE, shareY = TRUE)  
-```
-
-```{r plotSTATES3, fig.align="left", out.width="800px", out.height="1650px"}
-
-dtafig<-dtacurve%>%filter(peakcasespp>=30  & peakcasespp<60)%>%
-    mutate(levellow=30, levelhigh=60)
-
-dtafig%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 8, shareX = TRUE, shareY = TRUE)  
-```
-
-```{r plotSTATES4, fig.align="left", out.width="800px", out.height="450px"}
-
-dtafig<-dtacurve%>%filter(peakcasespp>=60)%>%
-    mutate(levellow=60, 
-           levelhigh=140)
-
-dtafig%>%
-    group_by(state) %>%
-    do(p = panel(.)) %>%
-    subplot(nrows = 2, shareX = TRUE, shareY = TRUE)  
+    subplot(nrows = nobs, shareX = TRUE, shareY = TRUE)  
 ```
 
 ---

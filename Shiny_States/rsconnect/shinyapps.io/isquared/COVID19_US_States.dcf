@@ -1,0 +1,13 @@
+name: COVID19_US_States
+title: COVID19_US_States
+username:
+account: isquared
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6584633
+bundleId: 6432457
+url: https://isquared.shinyapps.io/COVID19_US_States/
+when: 1666554776.549
+lastSyncTime: 1666554776.54901
+asMultiple: FALSE
+asStatic: FALSE
